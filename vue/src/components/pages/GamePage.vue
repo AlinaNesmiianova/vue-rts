@@ -9,7 +9,9 @@
 <script setup>
 import GameField from '@/components/game/GameField.vue'
 import SelectionPanel from '@/components/game/SelectionPanel.vue'
+import { useGameEvents } from '@/composables/useGameEvents'
 
+useGameEvents()
 </script>
 
 <style scoped lang="scss">
