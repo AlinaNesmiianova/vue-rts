@@ -24,6 +24,8 @@ export const typeOf = (entity) => (entity.kind === KINDS.UNIT ? UNIT_TYPES : BUI
 
 export const isUnit = (entity) => entity.kind === KINDS.UNIT
 
+export const isBuilding = (entity) => entity.kind === KINDS.BUILDING
+
 // стартовая расстановка (здания стоят ровно по клеткам: центр + половина размера)
 export const createStartEntities = () => [
   createBuilding('castle', -8, -8),
@@ -36,10 +38,23 @@ export const createStartEntities = () => [
 // шаг к цели за dt секунд: путь = скорость * dt, поэтому скорость не зависит от fps
 // возвращает новые координаты и цель (null - дошел)
 export const stepToTarget = (unit, dt) => {
+  const next = { x: unit.x, y: unit.y, target: unit.target } // начинаем с текущего положения
+
   const dx = unit.target.x - unit.x
   const dy = unit.target.y - unit.y
   const dist = Math.hypot(dx, dy)
   const step = UNIT_TYPES[unit.type].speed * dt
-  if (dist <= step) return { x: unit.target.x, y: unit.target.y, target: null }
-  return { x: unit.x + (dx / dist) * step, y: unit.y + (dy / dist) * step, target: unit.target }
+
+  if (dist <= step) {
+    // ближе шага - встаем ровно в цель и останавливаемся
+    next.x = unit.target.x
+    next.y = unit.target.y
+    next.target = null
+  } else {
+    // идем в сторону цели на длину шага
+    next.x += (dx / dist) * step
+    next.y += (dy / dist) * step
+  }
+
+  return next
 }

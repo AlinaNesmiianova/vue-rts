@@ -3,9 +3,11 @@
 
 import { cameraMatrix, createCamera, panCamera, screenToWorld, worldToScreen, zoomCamera } from '@/game/camera'
 import { containsPoint, createSquareMap } from '@/game/map'
-import { createStartEntities, isUnit, stepToTarget } from '@/game/entities'
+import { createStartEntities, isBuilding, isUnit, stepToTarget } from '@/game/entities'
 
 const MAP_SIZE = 120 // карта 120 на 120
+
+const byDepth = (a, b) => a.x + a.y - (b.x + b.y)
 
 export const MUTATIONS = {
   SET_VIEWPORT: 'SET_VIEWPORT',
@@ -26,8 +28,8 @@ export default {
   }),
   getters: {
     getMap: (state) => state.map,
-    // сначала дальние (меньше x + y), чтобы ближние рисовались поверх
-    getEntities: (state) => [...state.entities].sort((a, b) => a.x + a.y - (b.x + b.y)),
+    getUnits: (state) => state.entities.filter(isUnit).sort(byDepth),
+    getBuildings: (state) => state.entities.filter(isBuilding).sort(byDepth),
     getSelected: (state) => state.entities.filter((e) => state.selectedIds.includes(e.id)),
     isSelected: (state) => (id) => state.selectedIds.includes(id),
     getCameraMatrix: (state) => cameraMatrix(state.camera, state.viewport),
@@ -48,22 +50,46 @@ export default {
     },
     // один кадр: каждый идущий персонаж делает шаг к цели
     [MUTATIONS.TICK]: (state, dt) => {
-      state.entities.filter((e) => isUnit(e) && e.target).forEach((unit) => Object.assign(unit, stepToTarget(unit, dt)))
+      const movingUnits = state.entities.filter((e) => isUnit(e) && e.target)
+      movingUnits.forEach((unit) => {
+        Object.assign(unit, stepToTarget(unit, dt))
+      })
     },
   },
   actions: {
-    setViewport: ({ commit }, viewport) => commit(MUTATIONS.SET_VIEWPORT, viewport),
-    panCamera: ({ commit, state }, delta) =>
-      commit(MUTATIONS.SET_CAMERA, panCamera(state.camera, state.viewport, delta, state.map.bounds)),
-    zoomCamera: ({ commit, state }, zoom) =>
-      commit(MUTATIONS.SET_CAMERA, zoomCamera(state.camera, state.viewport, zoom, state.map.bounds)),
-    select: ({ commit }, id) => commit(MUTATIONS.SET_SELECTED, id === null ? [] : [id]),
-    // приказ выбранным персонажам идти в точку экрана, если она на карте
+    setViewport: ({ commit }, viewport) => {
+      commit(MUTATIONS.SET_VIEWPORT, viewport)
+    },
+
+    panCamera: ({ commit, state }, delta) => {
+      const camera = panCamera(state.camera, state.viewport, delta, state.map.bounds)
+      commit(MUTATIONS.SET_CAMERA, camera)
+    },
+
+    zoomCamera: ({ commit, state }, zoom) => {
+      const camera = zoomCamera(state.camera, state.viewport, zoom, state.map.bounds)
+      commit(MUTATIONS.SET_CAMERA, camera)
+    },
+
+    select: ({ commit }, id) => {
+      const ids = id === null ? [] : [id]
+      commit(MUTATIONS.SET_SELECTED, ids)
+    },
+
     moveSelected: ({ commit, state, getters }, screenPoint) => {
       const target = screenToWorld(state.camera, state.viewport, screenPoint)
-      if (!containsPoint(state.map, target)) return
-      getters.getSelected.filter(isUnit).forEach((unit) => commit(MUTATIONS.SET_TARGET, { id: unit.id, target }))
+      if (!containsPoint(state.map, target)) {
+        return
+      }
+
+      const units = getters.getSelected.filter(isUnit)
+      units.forEach((unit) => {
+        commit(MUTATIONS.SET_TARGET, { id: unit.id, target })
+      })
     },
-    tick: ({ commit }, dt) => commit(MUTATIONS.TICK, dt),
+
+    tick: ({ commit }, dt) => {
+      commit(MUTATIONS.TICK, dt)
+    },
   },
 }

@@ -11,7 +11,8 @@
     <!-- все внутри рисуется в координатах мира, матрица камеры делает из квадратов ромбы -->
     <g :transform="matrix">
       <MapGround :map="map" />
-      <MapObject v-for="entity in entities" :key="entity.id" :entity="entity" />
+      <MapBuilding v-for="building in buildings" :key="building.id" :building="building" />
+      <MapUnit v-for="unit in units" :key="unit.id" :unit="unit" />
     </g>
 
     <circle :cx="labels.center.x" :cy="labels.center.y" r="4" class="game-field__center" />
@@ -29,7 +30,8 @@ import { clamp } from '@/game/camera'
 import { useGameLoop } from '@/composables/useGameLoop'
 import { useKeyboard } from '@/composables/useKeyboard'
 import MapGround from './MapGround.vue'
-import MapObject from './MapObject.vue'
+import MapBuilding from './MapBuilding.vue'
+import MapUnit from './MapUnit.vue'
 
 const EDGE = 16
 const PAN_SPEED = 700
@@ -40,7 +42,8 @@ const mouse = { x: 0, y: 0, inside: false } // не реактивный: нуж
 const { isPressed } = useKeyboard()
 
 const map = computed(() => store.getters['game/getMap'])
-const entities = computed(() => store.getters['game/getEntities'])
+const buildings = computed(() => store.getters['game/getBuildings'])
+const units = computed(() => store.getters['game/getUnits'])
 const matrix = computed(() => store.getters['game/getCameraMatrix'])
 const labels = computed(() => {
   const toScreen = store.getters['game/toScreen']
