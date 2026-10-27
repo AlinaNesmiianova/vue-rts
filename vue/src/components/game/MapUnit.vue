@@ -1,12 +1,22 @@
 <template>
+  <!-- пунктирная линия показывает приказ атаки выбранного персонажа -->
+  <line
+    v-if="selected && attackTarget"
+    :x1="unit.x"
+    :y1="unit.y"
+    :x2="attackTarget.x"
+    :y2="attackTarget.y"
+    class="map-unit__attack-line"
+  />
+
   <!-- персонаж - круг, на экране овал на земле -->
   <circle
     :cx="unit.x"
     :cy="unit.y"
     :r="type.size / 2"
-    :fill="type.color"
+    :fill="unit.team === TEAMS.ENEMY ? type.enemyColor : type.color"
     class="map-unit"
-    :class="{ 'map-unit--selected': selected }"
+    :class="{ 'map-unit--selected': selected, 'map-unit--enemy': unit.team === TEAMS.ENEMY }"
     @mousedown.left.exact.stop="bus.emit(EVENTS.SELECT, unit.id)"
   />
 
@@ -25,7 +35,7 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
-import { UNIT_TYPES } from '@/game/entities'
+import { TEAMS, UNIT_TYPES } from '@/game/entities'
 
 const props = defineProps({
   unit: { type: Object, required: true },
@@ -34,23 +44,38 @@ const props = defineProps({
 const store = useStore()
 const type = computed(() => UNIT_TYPES[props.unit.type])
 const selected = computed(() => store.getters['game/isSelected'](props.unit.id))
+const attackTarget = computed(() => store.state.game.entities.find((entity) => entity.id === props.unit.attackTargetId))
 </script>
 
 <style scoped lang="scss">
 .map-unit {
-  stroke: rgba(0, 0, 0, 0.6);
+  stroke: rgba(0, 0, 0, 0.7);
+  stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
   cursor: pointer;
 
   &--selected {
     stroke: #fff;
-    stroke-width: 2;
+    stroke-width: 3;
+  }
+
+  &--enemy:not(.map-unit--selected) {
+    stroke: #692523;
   }
 
   &__target {
     fill: none;
     stroke: #fff;
     stroke-dasharray: 3 2;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+  }
+
+  &__attack-line {
+    pointer-events: none;
+    stroke: #ff5858;
+    stroke-width: 2;
+    stroke-dasharray: 6 4;
     vector-effect: non-scaling-stroke;
     pointer-events: none;
   }

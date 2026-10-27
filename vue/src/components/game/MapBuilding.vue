@@ -5,9 +5,9 @@
     :y="building.y - type.size / 2"
     :width="type.size"
     :height="type.size"
-    :fill="type.color"
+    :fill="building.team === TEAMS.ENEMY ? type.enemyColor : type.color"
     class="map-building"
-    :class="{ 'map-building--selected': selected }"
+    :class="{ 'map-building--selected': selected, 'map-building--enemy': building.team === TEAMS.ENEMY }"
     @mousedown.left.exact.stop="bus.emit(EVENTS.SELECT, building.id)"
   />
 </template>
@@ -16,7 +16,7 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
-import { BUILDING_TYPES } from '@/game/entities'
+import { BUILDING_TYPES, TEAMS } from '@/game/entities'
 
 const props = defineProps({
   building: { type: Object, required: true },
@@ -29,13 +29,18 @@ const selected = computed(() => store.getters['game/isSelected'](props.building.
 
 <style scoped lang="scss">
 .map-building {
-  stroke: rgba(0, 0, 0, 0.6);
+  stroke: #3d8ecc;
+  stroke-width: 3;
   vector-effect: non-scaling-stroke;
   cursor: pointer;
 
   &--selected {
     stroke: #fff;
-    stroke-width: 2;
+    stroke-width: 4;
+  }
+
+  &--enemy:not(.map-building--selected) {
+    stroke: #d66565;
   }
 }
 </style>

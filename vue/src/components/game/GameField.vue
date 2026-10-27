@@ -3,7 +3,8 @@
     ref="svg"
     class="game-field"
     @mousedown.left.exact="bus.emit(EVENTS.SELECT, null)"
-    @contextmenu.prevent="(e) => bus.emit(EVENTS.MOVE, toLocal(e))"
+    @pointerdown.right.prevent="onRightClick"
+    @contextmenu.prevent
     @wheel.prevent="onWheel"
     @mousemove="(e) => Object.assign(mouse, toLocal(e), { inside: true })"
     @mouseleave="mouse.inside = false"
@@ -13,6 +14,20 @@
       <MapGround :map="map" />
       <MapBuilding v-for="building in buildings" :key="building.id" :building="building" />
       <MapUnit v-for="unit in units" :key="unit.id" :unit="unit" />
+    </g>
+
+    <!-- HP рисуется в экранных координатах, чтобы шкала не искажалась изометрией. -->
+    <g
+      v-for="entity in entities"
+      :key="`hp-${entity.id}`"
+      class="game-field__health"
+      :transform="`translate(${toScreen(entity).x}, ${toScreen(entity).y - (isBuilding(entity) ? typeOf(entity).size * 8 + 12 : 19)})`"
+    >
+      <rect x="-21" y="-3" width="42" height="7" rx="2" fill="#1d2226" stroke="#0d1115" stroke-width="1" />
+      <rect
+        x="-20" y="-2" :width="40 * entity.hp / typeOf(entity).maxHp" height="5" rx="1"
+        :fill="entity.team === TEAMS.PLAYER ? '#71d4a0' : '#f17777'"
+      />
     </g>
 
     <circle :cx="labels.center.x" :cy="labels.center.y" r="4" class="game-field__center" />
@@ -26,7 +41,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
-import { clamp } from '@/game/camera'
+import { clamp, screenToWorld } from '@/game/camera'
+import { entityAtPoint, isBuilding, TEAMS, typeOf } from '@/game/entities'
 import { useGameLoop } from '@/composables/useGameLoop'
 import { useKeyboard } from '@/composables/useKeyboard'
 import MapGround from './MapGround.vue'
@@ -44,6 +60,8 @@ const { isPressed } = useKeyboard()
 const map = computed(() => store.getters['game/getMap'])
 const buildings = computed(() => store.getters['game/getBuildings'])
 const units = computed(() => store.getters['game/getUnits'])
+const entities = computed(() => store.state.game.entities)
+const toScreen = (point) => store.getters['game/toScreen'](point)
 const matrix = computed(() => store.getters['game/getCameraMatrix'])
 const labels = computed(() => {
   const toScreen = store.getters['game/toScreen']
@@ -55,6 +73,16 @@ const labels = computed(() => {
 const toLocal = (e) => {
   const rect = svg.value.getBoundingClientRect()
   return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+}
+
+// Выдаем приказ сразу при нажатии ПКМ, не дожидаясь события contextmenu.
+// Цель определяется по координатам, а не по маленькой SVG-фигуре под курсором.
+const onRightClick = (e) => {
+  const point = toLocal(e)
+  const { camera, viewport, entities } = store.state.game
+  const target = entityAtPoint(entities, screenToWorld(camera, viewport, point))
+  if (target) bus.emit(EVENTS.ATTACK, target.id)
+  else bus.emit(EVENTS.MOVE, point)
 }
 
 // щипок на тачпаде (и ctrl+колесо) приходит с ctrlKey -> зум, свайп двумя пальцами -> сдвиг камеры
@@ -92,6 +120,10 @@ onBeforeUnmount(() => resizeObserver.disconnect())
   width: 100%;
   height: 100%;
   background: #0b0d10;
+
+  &__health {
+    pointer-events: none;
+  }
 
   &__center {
     fill: #fff;
