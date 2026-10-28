@@ -6,8 +6,8 @@ export const useGameEvents = () => {
   const store = useStore()
   const handlers = {
     [EVENTS.SELECT]: (id) => store.dispatch('game/select', id),
-    [EVENTS.MOVE]: (point) => store.dispatch('game/moveSelected', point),
-    [EVENTS.ATTACK]: (targetId) => store.dispatch('game/attackSelected', targetId),
+    [EVENTS.MOVE]: (order) => store.dispatch('game/moveSelected', order),
+    [EVENTS.ATTACK]: (order) => store.dispatch('game/attackSelected', order),
     [EVENTS.SELF_DESTRUCT]: (id) => store.dispatch('game/selfDestruct', id),
   }
   onMounted(() => Object.entries(handlers).forEach(([event, handler]) => bus.on(event, handler)))
