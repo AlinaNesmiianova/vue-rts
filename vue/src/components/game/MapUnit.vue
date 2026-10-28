@@ -1,5 +1,20 @@
 <template>
-  <!-- пунктирная линия показывает приказ атаки выбранного персонажа -->
+  <!-- маршрут и будущие точки видны только у выбранного персонажа -->
+  <polyline
+    v-if="selected && routePoints.length"
+    :points="[{ x: unit.x, y: unit.y }, ...routePoints].map((point) => `${point.x},${point.y}`).join(' ')"
+    class="map-unit__route"
+  />
+  <circle
+    v-for="(point, index) in selected ? routePoints.slice(1) : []"
+    :key="index"
+    :cx="point.x"
+    :cy="point.y"
+    r="0.23"
+    class="map-unit__waypoint"
+  />
+
+  <!-- красный пунктир — активный приказ атаки -->
   <line
     v-if="selected && attackTarget"
     :x1="unit.x"
@@ -22,9 +37,9 @@
 
   <!-- куда идет выбранный -->
   <rect
-    v-if="selected && unit.target"
-    :x="unit.target.x - 0.25"
-    :y="unit.target.y - 0.25"
+    v-if="selected && orders[0]?.type === 'move'"
+    :x="orders[0].target.x - 0.25"
+    :y="orders[0].target.y - 0.25"
     width="0.5"
     height="0.5"
     class="map-unit__target"
@@ -44,7 +59,11 @@ const props = defineProps({
 const store = useStore()
 const type = computed(() => UNIT_TYPES[props.unit.type])
 const selected = computed(() => store.getters['game/isSelected'](props.unit.id))
-const attackTarget = computed(() => store.state.game.entities.find((entity) => entity.id === props.unit.attackTargetId))
+const orders = computed(() => store.getters['game/getUnitEvents'](props.unit.id))
+const attackTarget = computed(() => store.state.game.entities.find((entity) => entity.id === orders.value[0]?.targetId))
+const routePoints = computed(() => orders.value
+  .map((order) => order.type === 'move' ? order.target : store.state.game.entities.find((entity) => entity.id === order.targetId))
+  .filter(Boolean))
 </script>
 
 <style scoped lang="scss">
@@ -63,6 +82,23 @@ const attackTarget = computed(() => store.state.game.entities.find((entity) => e
     stroke: #692523;
   }
 
+  &__route {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.75);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+  }
+
+  &__waypoint {
+    fill: rgba(17, 22, 27, 0.75);
+    stroke: #fff;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+  }
+
   &__target {
     fill: none;
     stroke: #fff;
@@ -72,7 +108,6 @@ const attackTarget = computed(() => store.state.game.entities.find((entity) => e
   }
 
   &__attack-line {
-    pointer-events: none;
     stroke: #ff5858;
     stroke-width: 2;
     stroke-dasharray: 6 4;
