@@ -8,6 +8,7 @@
     class="map-unit"
     :class="{ 'map-unit--selected': selected }"
     @mousedown.left.exact.stop="bus.emit(EVENTS.SELECT, unit.id)"
+    @mousedown.left.shift.exact.stop="bus.emit(EVENTS.SELECT_TOGGLE, unit.id)"
   />
 
   <!-- куда идет выбранный: путь в обход зданий пунктиром и квадрат в конце -->

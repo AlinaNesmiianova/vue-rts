@@ -9,6 +9,7 @@
     class="map-building"
     :class="{ 'map-building--selected': selected }"
     @mousedown.left.exact.stop="bus.emit(EVENTS.SELECT, building.id)"
+    @mousedown.left.shift.exact.stop="bus.emit(EVENTS.SELECT_TOGGLE, building.id)"
   />
 </template>
 

@@ -10,11 +10,12 @@ export const UNIT_TYPES = {
 }
 
 // здание size x size клеток; порядок здесь = порядок кнопок в панели стройки
+// spawns - тип персонажа, которого здание создает (нет поля - здание никого не создает)
 export const BUILDING_TYPES = {
   tower: { name: 'Башня', size: 1, color: '#6f7d5c' },
   house: { name: 'Дом', size: 2, color: '#8a6d4b' },
-  barracks: { name: 'Казарма', size: 3, color: '#6b5b7b' },
-  castle: { name: 'Замок', size: 4, color: '#7d7f86' },
+  barracks: { name: 'Казарма', size: 3, color: '#6b5b7b', spawns: 'slow' },
+  castle: { name: 'Замок', size: 4, color: '#7d7f86', spawns: 'fast' },
 }
 
 let nextId = 1

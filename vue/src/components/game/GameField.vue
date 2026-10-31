@@ -23,6 +23,16 @@
     <text :x="labels.center.x + 8" :y="labels.center.y - 6" class="game-field__label">(0, 0)</text>
     <text :x="labels.x.x + 6" :y="labels.x.y" class="game-field__label">x</text>
     <text :x="labels.y.x - 14" :y="labels.y.y" class="game-field__label">y</text>
+
+    <!-- рамка выделения, рисуется в точках экрана -->
+    <rect
+      v-if="box"
+      :x="box.minX"
+      :y="box.minY"
+      :width="box.maxX - box.minX"
+      :height="box.maxY - box.minY"
+      class="game-field__box"
+    />
   </svg>
 </template>
 
@@ -31,6 +41,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
 import { clamp } from '@/game/camera'
+import { isClick, toRect } from '@/game/selection'
 import { useGameLoop } from '@/composables/useGameLoop'
 import { useKeyboard } from '@/composables/useKeyboard'
 import MapGround from './MapGround.vue'
@@ -45,6 +56,7 @@ const store = useStore()
 const svg = ref(null)
 const mouse = { x: 0, y: 0, inside: false } // не реактивный: нужен только циклу
 const { isPressed } = useKeyboard()
+const drag = ref(null) // рамка выделения: { from, to, add }, пока зажата ЛКМ
 
 const map = computed(() => store.getters['game/getMap'])
 const buildings = computed(() => store.getters['game/getBuildings'])
@@ -56,6 +68,7 @@ const labels = computed(() => {
   const { maxX, maxY } = map.value.bounds
   return { center: toScreen({ x: 0, y: 0 }), x: toScreen({ x: maxX, y: 0 }), y: toScreen({ x: 0, y: maxY }) }
 })
+const box = computed(() => drag.value && toRect(drag.value.from, drag.value.to))
 
 // координаты события внутри svg
 const toLocal = (e) => {
@@ -63,15 +76,26 @@ const toLocal = (e) => {
   return { x: e.clientX - rect.left, y: e.clientY - rect.top }
 }
 
-// ЛКМ: во время стройки - поставить здание (shift - строить дальше), иначе клик мимо объектов снимает выбор
+// ЛКМ: во время стройки - поставить здание (shift - строить дальше), иначе начинаем рамку выделения
 const onLeftClick = (e) => {
   if (placement.value) {
     if (!e.ctrlKey) bus.emit(EVENTS.BUILD_PLACE, { keep: e.shiftKey }) // ctrl+клик на маке - это правый клик
     return
   }
 
-  const hasModifiers = e.ctrlKey || e.shiftKey || e.altKey || e.metaKey
-  if (!hasModifiers) bus.emit(EVENTS.SELECT, null)
+  if (e.ctrlKey || e.altKey || e.metaKey) return
+  const point = toLocal(e)
+  drag.value = { from: point, to: point, add: e.shiftKey }
+}
+
+// отпустили ЛКМ (в том числе за полем): рамка выбирает персонажей, просто клик мимо объектов снимает выбор
+const onMouseUp = () => {
+  if (!drag.value) return
+  const { from, to, add } = drag.value
+  drag.value = null
+
+  if (!isClick(toRect(from, to))) bus.emit(EVENTS.SELECT_AREA, { from, to, add })
+  else if (!add) bus.emit(EVENTS.SELECT, null)
 }
 
 // ПКМ: во время стройки отменяет ее, иначе выбранный персонаж идет в точку
@@ -85,6 +109,7 @@ const onMouseMove = (e) => {
   const point = toLocal(e)
   Object.assign(mouse, point, { inside: true })
   if (placement.value) store.dispatch('game/movePlacement', point)
+  if (drag.value) drag.value.to = point
 }
 
 // щипок на тачпаде (и ctrl+колесо) приходит с ctrlKey -> зум, свайп двумя пальцами -> сдвиг камеры
@@ -121,10 +146,12 @@ const onKeyDown = (e) => {
 onMounted(() => {
   resizeObserver.observe(svg.value)
   window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('mouseup', onMouseUp)
 })
 onBeforeUnmount(() => {
   resizeObserver.disconnect()
   window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('mouseup', onMouseUp)
 })
 </script>
 
@@ -146,6 +173,13 @@ onBeforeUnmount(() => {
   &__label {
     fill: #fff;
     font-size: 14px;
+    pointer-events: none;
+  }
+
+  &__box {
+    fill: rgba(113, 212, 160, 0.12);
+    stroke: #71d4a0;
+    stroke-width: 1;
     pointer-events: none;
   }
 }

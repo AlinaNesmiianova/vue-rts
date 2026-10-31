@@ -3,9 +3,11 @@
 
 import { cameraMatrix, createCamera, panCamera, screenToWorld, worldToScreen, zoomCamera } from '@/game/camera'
 import { containsPoint, createSquareMap } from '@/game/map'
-import { createBuilding, createStartEntities, isBuilding, isUnit, stepToTarget, typeOf } from '@/game/entities'
+import { BUILDING_TYPES, createBuilding, createStartEntities, createUnit, isBuilding, isUnit, stepToTarget, typeOf } from '@/game/entities'
 import { findPath } from '@/game/pathfinding'
 import { canPlaceBuilding, snapToGrid } from '@/game/placement'
+import { assignSlots, formationSlots, insideRect, toggleId, toRect } from '@/game/selection'
+import { findSpawnPoint } from '@/game/spawn'
 
 const MAP_SIZE = 120 // карта 120 на 120
 
@@ -104,6 +106,22 @@ export default {
       commit(MUTATIONS.SET_SELECTED, ids)
     },
 
+    // shift + клик: добавить объект к выбору или убрать из него
+    toggleSelected: ({ commit, state }, id) => {
+      commit(MUTATIONS.SET_SELECTED, toggleId(state.selectedIds, id))
+    },
+
+    // рамка (углы в точках экрана): выбираем персонажей внутри; add (shift) - к уже выбранным
+    selectArea: ({ commit, state }, { from, to, add }) => {
+      const rect = toRect(from, to)
+      const ids = state.entities
+        .filter((e) => isUnit(e) && insideRect(rect, worldToScreen(state.camera, state.viewport, e)))
+        .map((e) => e.id)
+      const selected = add ? [...new Set([...state.selectedIds, ...ids])] : ids
+      commit(MUTATIONS.SET_SELECTED, selected)
+    },
+
+    // все выбранные персонажи идут к точке и встают вокруг нее строем, а не друг в друга
     moveSelected: ({ commit, state, getters }, screenPoint) => {
       const target = screenToWorld(state.camera, state.viewport, screenPoint)
       if (!containsPoint(state.map, target)) {
@@ -111,8 +129,14 @@ export default {
       }
 
       const units = getters.getSelected.filter(isUnit)
-      units.forEach((unit) => {
-        routeUnit(commit, state, unit, target)
+      if (!units.length) {
+        return
+      }
+      const radius = Math.max(...units.map((unit) => typeOf(unit).size / 2))
+      const groupIds = units.map((unit) => unit.id)
+      const slots = formationSlots(state.map, state.entities, target, units.length, radius, groupIds)
+      assignSlots(units, slots, target).forEach(({ unit, point }) => {
+        routeUnit(commit, state, unit, point)
       })
     },
 
@@ -159,6 +183,24 @@ export default {
 
       if (!keep) {
         commit(MUTATIONS.SET_PLACEMENT, null)
+      }
+    },
+
+    // здание сразу создает count своих персонажей на ближайших свободных местах рядом с собой
+    // по очереди: каждый следующий ищет место уже с учетом предыдущих; места кончились - создаем сколько поместилось
+    spawnUnits: ({ commit, state }, { id, count = 1 }) => {
+      const building = state.entities.find((e) => e.id === id && isBuilding(e))
+      const unitType = building && BUILDING_TYPES[building.type].spawns
+      if (!unitType) {
+        return
+      }
+
+      for (let n = 0; n < count; n++) {
+        const point = findSpawnPoint(state.map, state.entities, building, unitType)
+        if (!point) {
+          return
+        }
+        commit(MUTATIONS.ADD_ENTITY, createUnit(unitType, point.x, point.y))
       }
     },
   },
