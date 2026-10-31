@@ -2,17 +2,21 @@
   <svg
     ref="svg"
     class="game-field"
-    @mousedown.left.exact="bus.emit(EVENTS.SELECT, null)"
-    @contextmenu.prevent="(e) => bus.emit(EVENTS.MOVE, toLocal(e))"
+    @mousedown.left="onLeftClick"
+    @contextmenu.prevent="onRightClick"
     @wheel.prevent="onWheel"
-    @mousemove="(e) => Object.assign(mouse, toLocal(e), { inside: true })"
+    @mousemove="onMouseMove"
     @mouseleave="mouse.inside = false"
   >
     <!-- все внутри рисуется в координатах мира, матрица камеры делает из квадратов ромбы -->
     <g :transform="matrix">
       <MapGround :map="map" />
-      <MapBuilding v-for="building in buildings" :key="building.id" :building="building" />
-      <MapUnit v-for="unit in units" :key="unit.id" :unit="unit" />
+      <!-- во время стройки объекты не ловят клики: клик ставит здание, а не выбирает -->
+      <g :class="{ 'game-field__objects--placing': placement }">
+        <MapBuilding v-for="building in buildings" :key="building.id" :building="building" />
+        <MapUnit v-for="unit in units" :key="unit.id" :unit="unit" />
+      </g>
+      <BuildingGhost />
     </g>
 
     <circle :cx="labels.center.x" :cy="labels.center.y" r="4" class="game-field__center" />
@@ -32,6 +36,7 @@ import { useKeyboard } from '@/composables/useKeyboard'
 import MapGround from './MapGround.vue'
 import MapBuilding from './MapBuilding.vue'
 import MapUnit from './MapUnit.vue'
+import BuildingGhost from './BuildingGhost.vue'
 
 const EDGE = 16
 const PAN_SPEED = 700
@@ -45,6 +50,7 @@ const map = computed(() => store.getters['game/getMap'])
 const buildings = computed(() => store.getters['game/getBuildings'])
 const units = computed(() => store.getters['game/getUnits'])
 const matrix = computed(() => store.getters['game/getCameraMatrix'])
+const placement = computed(() => store.getters['game/getPlacement'])
 const labels = computed(() => {
   const toScreen = store.getters['game/toScreen']
   const { maxX, maxY } = map.value.bounds
@@ -55,6 +61,30 @@ const labels = computed(() => {
 const toLocal = (e) => {
   const rect = svg.value.getBoundingClientRect()
   return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+}
+
+// ЛКМ: во время стройки - поставить здание (shift - строить дальше), иначе клик мимо объектов снимает выбор
+const onLeftClick = (e) => {
+  if (placement.value) {
+    if (!e.ctrlKey) bus.emit(EVENTS.BUILD_PLACE, { keep: e.shiftKey }) // ctrl+клик на маке - это правый клик
+    return
+  }
+
+  const hasModifiers = e.ctrlKey || e.shiftKey || e.altKey || e.metaKey
+  if (!hasModifiers) bus.emit(EVENTS.SELECT, null)
+}
+
+// ПКМ: во время стройки отменяет ее, иначе выбранный персонаж идет в точку
+const onRightClick = (e) => {
+  if (placement.value) bus.emit(EVENTS.BUILD_CANCEL)
+  else bus.emit(EVENTS.MOVE, toLocal(e))
+}
+
+// запоминаем курсор для прокрутки у края; во время стройки двигаем за ним здание-призрак
+const onMouseMove = (e) => {
+  const point = toLocal(e)
+  Object.assign(mouse, point, { inside: true })
+  if (placement.value) store.dispatch('game/movePlacement', point)
 }
 
 // щипок на тачпаде (и ctrl+колесо) приходит с ctrlKey -> зум, свайп двумя пальцами -> сдвиг камеры
@@ -82,8 +112,20 @@ useGameLoop((dt) => {
 const resizeObserver = new ResizeObserver(([entry]) =>
   store.dispatch('game/setViewport', { width: entry.contentRect.width, height: entry.contentRect.height }),
 )
-onMounted(() => resizeObserver.observe(svg.value))
-onBeforeUnmount(() => resizeObserver.disconnect())
+
+// Esc - отменить стройку; ловим само нажатие, а не проверяем в цикле: короткое нажатие цикл может пропустить
+const onKeyDown = (e) => {
+  if (e.code === 'Escape' && placement.value) bus.emit(EVENTS.BUILD_CANCEL)
+}
+
+onMounted(() => {
+  resizeObserver.observe(svg.value)
+  window.addEventListener('keydown', onKeyDown)
+})
+onBeforeUnmount(() => {
+  resizeObserver.disconnect()
+  window.removeEventListener('keydown', onKeyDown)
+})
 </script>
 
 <style scoped lang="scss">
@@ -92,6 +134,10 @@ onBeforeUnmount(() => resizeObserver.disconnect())
   width: 100%;
   height: 100%;
   background: #0b0d10;
+
+  &__objects--placing {
+    pointer-events: none;
+  }
 
   &__center {
     fill: #fff;

@@ -10,11 +10,12 @@
     @mousedown.left.exact.stop="bus.emit(EVENTS.SELECT, unit.id)"
   />
 
-  <!-- куда идет выбранный -->
+  <!-- куда идет выбранный: путь в обход зданий пунктиром и квадрат в конце -->
+  <polyline v-if="selected && finish" :points="route" class="map-unit__route" />
   <rect
-    v-if="selected && unit.target"
-    :x="unit.target.x - 0.25"
-    :y="unit.target.y - 0.25"
+    v-if="selected && finish"
+    :x="finish.x - 0.25"
+    :y="finish.y - 0.25"
     width="0.5"
     height="0.5"
     class="map-unit__target"
@@ -34,6 +35,8 @@ const props = defineProps({
 const store = useStore()
 const type = computed(() => UNIT_TYPES[props.unit.type])
 const selected = computed(() => store.getters['game/isSelected'](props.unit.id))
+const finish = computed(() => props.unit.path[props.unit.path.length - 1] ?? props.unit.target)
+const route = computed(() => [props.unit, props.unit.target, ...props.unit.path].map((p) => `${p.x},${p.y}`).join(' '))
 </script>
 
 <style scoped lang="scss">
@@ -45,6 +48,14 @@ const selected = computed(() => store.getters['game/isSelected'](props.unit.id))
   &--selected {
     stroke: #fff;
     stroke-width: 2;
+  }
+
+  &__route {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.6);
+    stroke-dasharray: 4 3;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
   }
 
   &__target {
