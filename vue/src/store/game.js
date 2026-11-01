@@ -5,17 +5,19 @@ import { cameraMatrix, createCamera, panCamera, screenToWorld, worldToScreen, zo
 import { canStandOnTerrain, containsPoint, createSquareMap } from '@/game/map'
 import { BUILDING_TYPES, createBuilding, createStartEntities, createUnit, isBuilding, isUnit, stepToTarget, typeOf } from '@/game/entities'
 import { findPath } from '@/game/pathfinding'
-import { canPlaceBuilding, snapToGrid } from '@/game/placement'
+import { canPlaceBuilding, isSegmentClear, snapToGrid } from '@/game/placement'
 import { assignSlots, formationSlots, insideRect, toggleId, toRect } from '@/game/selection'
 import { findSpawnPoint } from '@/game/spawn'
 
 const MAP_SIZE = 120 // карта 120 на 120
+const REPATH_DELAY = 0.5 // между попытками обойти движущееся препятствие, в секундах
 
 const byDepth = (a, b) => a.x + a.y - (b.x + b.y)
 
-// путь персонажа до точки в обход зданий
-const routeUnit = (commit, state, unit, to) => {
-  const path = findPath(state.map, state.entities, unit, to, typeOf(unit).size / 2)
+// путь персонажа до точки в обход объектов
+const routeUnit = (commit, state, unit, to, groupIds = []) => {
+  const obstacles = state.entities.filter((entity) => !groupIds.includes(entity.id) || entity.id === unit.id)
+  const path = findPath(state.map, obstacles, unit, to, typeOf(unit).size / 2)
   commit(MUTATIONS.SET_PATH, { id: unit.id, path })
 }
 
@@ -71,15 +73,29 @@ export default {
       const unit = state.entities.find((e) => e.id === id)
       unit.target = path[0] ?? null
       unit.path = path.slice(1)
+      unit.repathDelay = 0
     },
     // один кадр: каждый идущий персонаж делает шаг к цели
     [MUTATIONS.TICK]: (state, dt) => {
       const movingUnits = state.entities.filter((e) => isUnit(e) && e.target)
       movingUnits.forEach((unit) => {
+        unit.repathDelay = Math.max(0, unit.repathDelay - dt)
         const next = stepToTarget(unit, dt)
         const type = typeOf(unit)
-        if (canStandOnTerrain(state.map, next, type.size / 2, type.terrain)) {
+        const clear = state.entities.every((entity) => entity.id === unit.id || isSegmentClear(unit, next, type.size / 2, entity))
+        if (clear && canStandOnTerrain(state.map, next, type.size / 2, type.terrain)) {
           Object.assign(unit, next)
+        } else if (!clear && !unit.repathDelay) {
+          unit.repathDelay = REPATH_DELAY
+          // объект мог появиться или переместиться на пути - обходим его с текущей позиции
+          const finish = unit.path[unit.path.length - 1] ?? unit.target
+          const path = findPath(state.map, state.entities, unit, finish, type.size / 2)
+          // неполный обход не заменяет цель: в плотной группе ждем, пока соседи пройдут
+          const last = path[path.length - 1]
+          if (last && Math.hypot(last.x - finish.x, last.y - finish.y) < 1e-9) {
+            unit.target = path[0]
+            unit.path = path.slice(1)
+          }
         }
       })
     },
@@ -144,7 +160,8 @@ export default {
         const groupIds = group.map((unit) => unit.id)
         const slots = formationSlots(state.map, state.entities, target, group.length, radius, groupIds, terrain)
         assignSlots(group, slots, target).forEach(({ unit, point }) => {
-          routeUnit(commit, state, unit, point)
+          if (point) routeUnit(commit, state, unit, point, groupIds)
+          else commit(MUTATIONS.SET_PATH, { id: unit.id, path: [] })
         })
       })
     },

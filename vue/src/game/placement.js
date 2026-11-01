@@ -5,6 +5,9 @@ import { BUILDING_TYPES, isBuilding, typeOf } from './entities.js'
 // углы проверяем чуть внутри здания, чтобы край карты не считался выходом за нее
 const EDGE_INSET = 0.001
 
+// погрешность вычислений при касании границ
+const COLLISION_EPSILON = 1e-9
+
 // квадрат здания: центр (x, y), сторона size
 export const toBox = (x, y, size) => ({
   minX: x - size / 2,
@@ -12,6 +15,64 @@ export const toBox = (x, y, size) => ({
   minY: y - size / 2,
   maxY: y + size / 2,
 })
+
+// круг персонажа не задевает объект; касание границ разрешено
+export const isClearOfEntity = (point, radius, entity) => {
+  const size = typeOf(entity).size
+  if (!isBuilding(entity)) {
+    return Math.hypot(point.x - entity.x, point.y - entity.y) + COLLISION_EPSILON >= radius + size / 2
+  }
+
+  const box = toBox(entity.x, entity.y, size)
+  const nearestX = Math.min(box.maxX, Math.max(box.minX, point.x))
+  const nearestY = Math.min(box.maxY, Math.max(box.minY, point.y))
+  return Math.hypot(point.x - nearestX, point.y - nearestY) + COLLISION_EPSILON >= radius
+}
+
+const distanceToSegment = (point, from, to) => {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const lengthSquared = dx * dx + dy * dy
+  const t = lengthSquared ? Math.max(0, Math.min(1, ((point.x - from.x) * dx + (point.y - from.y) * dy) / lengthSquared)) : 0
+  return Math.hypot(point.x - from.x - t * dx, point.y - from.y - t * dy)
+}
+
+const crossesBox = (from, to, box) => {
+  let enter = 0
+  let exit = 1
+  for (const [axis, min, max] of [['x', box.minX, box.maxX], ['y', box.minY, box.maxY]]) {
+    const delta = to[axis] - from[axis]
+    if (!delta) {
+      if (from[axis] < min || from[axis] > max) return false
+    } else {
+      const a = (min - from[axis]) / delta
+      const b = (max - from[axis]) / delta
+      enter = Math.max(enter, Math.min(a, b))
+      exit = Math.min(exit, Math.max(a, b))
+      if (enter > exit) return false
+    }
+  }
+  return true
+}
+
+// проверяем весь шаг, чтобы персонаж не прошел сквозь объект между кадрами
+export const isSegmentClear = (from, to, radius, entity) => {
+  const size = typeOf(entity).size
+  if (!isBuilding(entity)) {
+    return distanceToSegment(entity, from, to) + COLLISION_EPSILON >= radius + size / 2
+  }
+
+  const box = toBox(entity.x, entity.y, size)
+  return isClearOfEntity(from, radius, entity) &&
+    isClearOfEntity(to, radius, entity) &&
+    !crossesBox(from, to, box) &&
+    [
+      { x: box.minX, y: box.minY },
+      { x: box.maxX, y: box.minY },
+      { x: box.maxX, y: box.maxY },
+      { x: box.minX, y: box.maxY },
+    ].every((corner) => distanceToSegment(corner, from, to) + COLLISION_EPSILON >= radius)
+}
 
 // здание N x N ставим ровно по клеткам, курсор - примерно центр здания
 export const snapToGrid = (type, point) => {

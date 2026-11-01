@@ -1,7 +1,7 @@
-// обход зданий: ищем путь по клеткам (A*), потом срезаем лишние повороты
+// обход объектов: ищем путь по клеткам (A*), потом срезаем лишние повороты
 import { canStandOnTerrain } from './map.js'
-import { BUILDING_TYPES, isBuilding, typeOf } from './entities.js'
-import { toBox } from './placement.js'
+import { typeOf } from './entities.js'
+import { isClearOfEntity, isSegmentClear } from './placement.js'
 
 // 8 соседей клетки: 4 по сторонам и 4 по диагонали
 const NEIGHBORS = [
@@ -16,42 +16,32 @@ const CHECK_STEP = 0.1
 const MAX_SEARCH_RING = 20
 
 const keyOf = (i, j) => `${i},${j}`
-const cellOf = (point) => ({ i: Math.floor(point.x), j: Math.floor(point.y) })
-const centerOf = (cell) => ({ x: cell.i + 0.5, y: cell.j + 0.5 })
+const cellOf = (grid, point) => ({ i: Math.round(point.x - grid.origin.x), j: Math.round(point.y - grid.origin.y) })
+// цель совпадает с узлом сетки, чтобы можно было подойти к месту внутри плотного строя
+const pointOf = (grid, cell) => ({ x: grid.origin.x + cell.i, y: grid.origin.y + cell.j })
 
-// все, что нужно поиску: занятые клетки и здания, раздутые на радиус персонажа
-const createGrid = (map, entities, radius, terrain) => {
-  const buildings = entities.filter(isBuilding)
-  const blocked = new Set()
-  buildings.forEach((building) => {
-    const box = toBox(building.x, building.y, BUILDING_TYPES[building.type].size)
-    for (let i = Math.floor(box.minX); i < Math.ceil(box.maxX); i++) {
-      for (let j = Math.floor(box.minY); j < Math.ceil(box.maxY); j++) {
-        blocked.add(keyOf(i, j))
-      }
-    }
-  })
+// все, что нужно поиску: местность, размер персонажа и остальные объекты
+const createGrid = (map, entities, radius, terrain, from, origin) => ({
+  map, radius, terrain, from, origin,
+  obstacles: entities.filter((entity) => entity.id !== from.id),
+})
 
-  // центр персонажа не должен заходить в здание ближе чем на радиус
-  const boxes = buildings.map((b) => toBox(b.x, b.y, BUILDING_TYPES[b.type].size + radius * 2))
-  return { map, blocked, boxes, radius, terrain }
-}
-
-const isFreeCell = (grid, cell) => !grid.blocked.has(keyOf(cell.i, cell.j)) && isFreePoint(grid, centerOf(cell))
+const isFreeCell = (grid, cell) => isFreePoint(grid, pointOf(grid, cell))
 
 const isFreePoint = (grid, p) =>
   canStandOnTerrain(grid.map, p, grid.radius, grid.terrain) &&
-  grid.boxes.every((b) => p.x <= b.minX || p.x >= b.maxX || p.y <= b.minY || p.y >= b.maxY)
+  grid.obstacles.every((entity) => isClearOfEntity(p, grid.radius, entity))
 
 // можно ли пройти по прямой: проверяем точки отрезка с маленьким шагом
 const canWalkStraight = (grid, from, to) => {
-  if (!isFreePoint(grid, to)) {
+  if (!isFreePoint(grid, to) || !grid.obstacles.every((entity) => isSegmentClear(from, to, grid.radius, entity))) {
     return false
   }
   const steps = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / CHECK_STEP)
   for (let k = 1; k <= steps; k++) {
     const t = k / steps
-    if (!isFreePoint(grid, { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t })) {
+    const point = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
+    if (!canStandOnTerrain(grid.map, point, grid.radius, grid.terrain)) {
       return false
     }
   }
@@ -116,6 +106,9 @@ const searchCells = (grid, start, goal) => {
       if (di && dj && (!isFreeCell(grid, { i: node.i + di, j: node.j }) || !isFreeCell(grid, { i: node.i, j: node.j + dj }))) {
         return
       }
+      if (!canWalkStraight(grid, node.parent ? pointOf(grid, node) : grid.from, pointOf(grid, next))) {
+        return
+      }
       const g = node.g + Math.hypot(di, dj)
       if (g >= (bestG.get(keyOf(next.i, next.j)) ?? Infinity)) {
         return
@@ -150,23 +143,17 @@ const smoothPath = (grid, points) => {
   return result
 }
 
-// путь персонажа от from к to в обход зданий: список точек, по которым идти
+// путь персонажа от from к to в обход объектов: список точек, по которым идти
 // цель в здании - идем к ближайшей свободной клетке, цель недостижима - подходим как можно ближе
 export const findPath = (map, entities, from, to, radius) => {
-  const grid = createGrid(map, entities, radius, typeOf(from).terrain)
+  const grid = createGrid(map, entities, radius, typeOf(from).terrain, from, to)
   if (canWalkStraight(grid, from, to)) {
     return [to]
   }
 
-  const target = cellOf(to)
-  const cells = searchCells(grid, cellOf(from), nearestFreeCell(grid, target))
-  const points = cells.map(centerOf)
-
-  // дошли до клетки цели и сама цель не у стены - встаем ровно в нее, а не в центр клетки
-  const last = cells[cells.length - 1]
-  if (last.i === target.i && last.j === target.j && isFreePoint(grid, to)) {
-    points[points.length - 1] = to
-  }
+  const target = cellOf(grid, to)
+  const cells = searchCells(grid, cellOf(grid, from), nearestFreeCell(grid, target))
+  const points = cells.slice(1).map((cell) => pointOf(grid, cell))
 
   return smoothPath(grid, [from, ...points])
 }

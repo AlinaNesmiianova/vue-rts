@@ -1,7 +1,7 @@
 // спавн: где рядом со зданием появится новый персонаж
 import { canStandOnTerrain } from './map.js'
-import { BUILDING_TYPES, isBuilding, typeOf, UNIT_TYPES } from './entities.js'
-import { toBox } from './placement.js'
+import { BUILDING_TYPES, UNIT_TYPES } from './entities.js'
+import { isClearOfEntity, toBox } from './placement.js'
 
 // сколько колец клеток вокруг здания проверяем, прежде чем сдаться
 const MAX_RING = 10
@@ -23,20 +23,6 @@ const ringCells = (box, ring) => {
   return cells
 }
 
-// круг персонажа (центр p, радиус r) не задевает объект
-const isClear = (p, r, entity) => {
-  const size = typeOf(entity).size
-
-  if (isBuilding(entity)) {
-    const box = toBox(entity.x, entity.y, size)
-    const nearestX = Math.min(box.maxX, Math.max(box.minX, p.x))
-    const nearestY = Math.min(box.maxY, Math.max(box.minY, p.y))
-    return Math.hypot(p.x - nearestX, p.y - nearestY) >= r
-  }
-
-  return Math.hypot(p.x - entity.x, p.y - entity.y) >= r + size / 2
-}
-
 // ближайшая к зданию свободная клетка для персонажа unitType; null - вокруг все занято
 // внутри кольца сначала клетки ближе к центру здания (середины сторон, а не углы)
 export const findSpawnPoint = (map, entities, building, unitType) => {
@@ -46,7 +32,7 @@ export const findSpawnPoint = (map, entities, building, unitType) => {
 
   for (let ring = 1; ring <= MAX_RING; ring++) {
     const free = ringCells(box, ring)
-      .filter((p) => canStandOnTerrain(map, p, r, UNIT_TYPES[unitType].terrain) && entities.every((entity) => isClear(p, r, entity)))
+      .filter((p) => canStandOnTerrain(map, p, r, UNIT_TYPES[unitType].terrain) && entities.every((entity) => isClearOfEntity(p, r, entity)))
       .sort((a, b) => distance(a) - distance(b))
     if (free.length) {
       return free[0]

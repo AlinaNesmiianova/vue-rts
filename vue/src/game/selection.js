@@ -6,8 +6,8 @@ import { toBox } from './placement.js'
 // рамка меньше этого (в пикселях) - это не рамка, а просто клик
 const CLICK_SIZE = 4
 
-// расстояние между соседями в строю (в клетках), больше размера персонажа
-const SPACING = 1
+// расстояние между соседями в строю: оставляем проход для остальных персонажей
+const SPACING = 2
 
 // прямоугольник по двум углам, в любом порядке
 export const toRect = (a, b) => ({
@@ -40,19 +40,21 @@ const isFreeOfUnits = (entities, p, radius, groupIds) =>
     .filter((e) => isUnit(e) && !groupIds.includes(e.id))
     .every((u) => {
       const rest = restPoint(u)
-      return Math.hypot(p.x - rest.x, p.y - rest.y) >= radius + UNIT_TYPES[u.type].size / 2
+      const distance = radius + UNIT_TYPES[u.type].size / 2
+      return Math.hypot(p.x - u.x, p.y - u.y) >= distance && Math.hypot(p.x - rest.x, p.y - rest.y) >= distance
     })
 
 // count мест вокруг цели: кольцами квадратов, ближние первыми
 // места в зданиях, за картой и занятые чужими персонажами пропускаем; groupIds - кто встает в строй
 export const formationSlots = (map, entities, target, count, radius, groupIds = [], terrain) => {
   const slots = []
+  const spacing = Math.max(SPACING, radius * 4)
   for (let ring = 0; slots.length < count && ring <= count; ring++) {
     const ringSlots = []
     for (let i = -ring; i <= ring; i++) {
       for (let j = -ring; j <= ring; j++) {
         if (Math.max(Math.abs(i), Math.abs(j)) === ring) {
-          ringSlots.push({ x: target.x + i * SPACING, y: target.y + j * SPACING })
+          ringSlots.push({ x: target.x + i * spacing, y: target.y + j * spacing })
         }
       }
     }
@@ -85,7 +87,7 @@ const crosses = (a, b, c, d) => side(a, b, c) * side(a, b, d) < 0 && side(c, d, 
 // 2. каждому месту (от центра строя) - персонаж, чья желаемая точка ближе
 // 3. меняем двоих местами, пока это приближает их к желаемым точкам
 // 4. если пути двоих все же пересекаются - меняем их местами (сумма путей от этого всегда короче, так что это закончится)
-// возвращает пары { unit, point }; мест не хватило - оставшиеся идут прямо в цель
+// возвращает пары { unit, point }; мест не хватило - point null, персонаж остается на месте
 export const assignSlots = (units, slots, target) => {
   const center = centerOf(units)
   const unitSpread = spreadOf(units, center)
@@ -99,7 +101,7 @@ export const assignSlots = (units, slots, target) => {
   const cost = (i, point) => (wanted[i].x - point.x) ** 2 + (wanted[i].y - point.y) ** 2
 
   // шаг 2: points[i] - место персонажа units[i]
-  const points = units.map(() => target)
+  const points = units.map(() => null)
   const free = units.map((_, i) => i)
   slots.forEach((slot) => {
     const best = free.reduce((a, b) => (cost(b, slot) < cost(a, slot) ? b : a))
@@ -113,7 +115,7 @@ export const assignSlots = (units, slots, target) => {
       improved = false
       for (let i = 0; i < units.length; i++) {
         for (let j = i + 1; j < units.length; j++) {
-          if (shouldSwap(i, j)) {
+          if (points[i] && points[j] && shouldSwap(i, j)) {
             ;[points[i], points[j]] = [points[j], points[i]]
             improved = true
           }

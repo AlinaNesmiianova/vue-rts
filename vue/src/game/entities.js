@@ -23,8 +23,8 @@ export const BUILDING_TYPES = {
 
 let nextId = 1
 
-// target - точка, к которой идет сейчас, path - следующие точки пути в обход зданий
-export const createUnit = (type, x, y) => ({ id: nextId++, kind: KINDS.UNIT, type, x, y, target: null, path: [] })
+// target - текущая цель, path - следующие точки пути, repathDelay - пауза до следующей попытки обхода
+export const createUnit = (type, x, y) => ({ id: nextId++, kind: KINDS.UNIT, type, x, y, target: null, path: [], repathDelay: 0 })
 
 export const createBuilding = (type, x, y) => ({ id: nextId++, kind: KINDS.BUILDING, type, x, y })
 
@@ -42,6 +42,7 @@ export const createStartEntities = () => [
   createUnit('slow', 0, 3),
   createUnit('fast', 3, 1),
   createUnit('swimmer', 20, 0),
+  createUnit('swimmer', 22, 0),
 ]
 
 // шаг к цели за dt секунд: путь = скорость * dt, поэтому скорость не зависит от fps
