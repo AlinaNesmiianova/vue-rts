@@ -2,7 +2,7 @@
 // компоненты только читают геттеры и вызывают действия
 
 import { cameraMatrix, createCamera, panCamera, screenToWorld, worldToScreen, zoomCamera } from '@/game/camera'
-import { containsPoint, createSquareMap } from '@/game/map'
+import { canStandOnTerrain, containsPoint, createSquareMap } from '@/game/map'
 import { BUILDING_TYPES, createBuilding, createStartEntities, createUnit, isBuilding, isUnit, stepToTarget, typeOf } from '@/game/entities'
 import { findPath } from '@/game/pathfinding'
 import { canPlaceBuilding, snapToGrid } from '@/game/placement'
@@ -76,7 +76,11 @@ export default {
     [MUTATIONS.TICK]: (state, dt) => {
       const movingUnits = state.entities.filter((e) => isUnit(e) && e.target)
       movingUnits.forEach((unit) => {
-        Object.assign(unit, stepToTarget(unit, dt))
+        const next = stepToTarget(unit, dt)
+        const type = typeOf(unit)
+        if (canStandOnTerrain(state.map, next, type.size / 2, type.terrain)) {
+          Object.assign(unit, next)
+        }
       })
     },
     [MUTATIONS.ADD_ENTITY]: (state, entity) => {
@@ -132,11 +136,16 @@ export default {
       if (!units.length) {
         return
       }
-      const radius = Math.max(...units.map((unit) => typeOf(unit).size / 2))
-      const groupIds = units.map((unit) => unit.id)
-      const slots = formationSlots(state.map, state.entities, target, units.length, radius, groupIds)
-      assignSlots(units, slots, target).forEach(({ unit, point }) => {
-        routeUnit(commit, state, unit, point)
+      // сухопутные и водные персонажи получают места только на своей местности
+      const terrains = [...new Set(units.map((unit) => typeOf(unit).terrain))]
+      terrains.forEach((terrain) => {
+        const group = units.filter((unit) => typeOf(unit).terrain === terrain)
+        const radius = Math.max(...group.map((unit) => typeOf(unit).size / 2))
+        const groupIds = group.map((unit) => unit.id)
+        const slots = formationSlots(state.map, state.entities, target, group.length, radius, groupIds, terrain)
+        assignSlots(group, slots, target).forEach(({ unit, point }) => {
+          routeUnit(commit, state, unit, point)
+        })
       })
     },
 

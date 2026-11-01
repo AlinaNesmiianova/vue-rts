@@ -1,6 +1,6 @@
 // обход зданий: ищем путь по клеткам (A*), потом срезаем лишние повороты
-import { containsPoint } from './map.js'
-import { BUILDING_TYPES, isBuilding } from './entities.js'
+import { canStandOnTerrain } from './map.js'
+import { BUILDING_TYPES, isBuilding, typeOf } from './entities.js'
 import { toBox } from './placement.js'
 
 // 8 соседей клетки: 4 по сторонам и 4 по диагонали
@@ -20,7 +20,7 @@ const cellOf = (point) => ({ i: Math.floor(point.x), j: Math.floor(point.y) })
 const centerOf = (cell) => ({ x: cell.i + 0.5, y: cell.j + 0.5 })
 
 // все, что нужно поиску: занятые клетки и здания, раздутые на радиус персонажа
-const createGrid = (map, entities, radius) => {
+const createGrid = (map, entities, radius, terrain) => {
   const buildings = entities.filter(isBuilding)
   const blocked = new Set()
   buildings.forEach((building) => {
@@ -34,15 +34,20 @@ const createGrid = (map, entities, radius) => {
 
   // центр персонажа не должен заходить в здание ближе чем на радиус
   const boxes = buildings.map((b) => toBox(b.x, b.y, BUILDING_TYPES[b.type].size + radius * 2))
-  return { map, blocked, boxes }
+  return { map, blocked, boxes, radius, terrain }
 }
 
-const isFreeCell = (grid, cell) => !grid.blocked.has(keyOf(cell.i, cell.j)) && containsPoint(grid.map, centerOf(cell))
+const isFreeCell = (grid, cell) => !grid.blocked.has(keyOf(cell.i, cell.j)) && isFreePoint(grid, centerOf(cell))
 
-const isFreePoint = (grid, p) => grid.boxes.every((b) => p.x <= b.minX || p.x >= b.maxX || p.y <= b.minY || p.y >= b.maxY)
+const isFreePoint = (grid, p) =>
+  canStandOnTerrain(grid.map, p, grid.radius, grid.terrain) &&
+  grid.boxes.every((b) => p.x <= b.minX || p.x >= b.maxX || p.y <= b.minY || p.y >= b.maxY)
 
 // можно ли пройти по прямой: проверяем точки отрезка с маленьким шагом
 const canWalkStraight = (grid, from, to) => {
+  if (!isFreePoint(grid, to)) {
+    return false
+  }
   const steps = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / CHECK_STEP)
   for (let k = 1; k <= steps; k++) {
     const t = k / steps
@@ -133,6 +138,9 @@ const smoothPath = (grid, points) => {
   let i = 0
   while (i < points.length - 1) {
     let far = i + 1
+    if (!canWalkStraight(grid, points[i], points[far])) {
+      break
+    }
     while (far + 1 < points.length && canWalkStraight(grid, points[i], points[far + 1])) {
       far++
     }
@@ -145,7 +153,7 @@ const smoothPath = (grid, points) => {
 // путь персонажа от from к to в обход зданий: список точек, по которым идти
 // цель в здании - идем к ближайшей свободной клетке, цель недостижима - подходим как можно ближе
 export const findPath = (map, entities, from, to, radius) => {
-  const grid = createGrid(map, entities, radius)
+  const grid = createGrid(map, entities, radius, typeOf(from).terrain)
   if (canWalkStraight(grid, from, to)) {
     return [to]
   }

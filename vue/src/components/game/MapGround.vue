@@ -4,6 +4,7 @@
     <polygon :points="points" />
   </clipPath>
   <polygon :points="points" class="map-ground" />
+  <path :d="water" class="map-ground__water" clip-path="url(#map-clip)" />
   <path :d="grid" class="map-ground__grid" clip-path="url(#map-clip)" />
   <line :x1="map.bounds.minX" y1="0" :x2="map.bounds.maxX" y2="0" class="map-ground__axis map-ground__axis--x" />
   <line x1="0" :y1="map.bounds.minY" x2="0" :y2="map.bounds.maxY" class="map-ground__axis map-ground__axis--y" />
@@ -11,6 +12,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { TERRAIN_TYPES } from '@/game/map'
 
 const props = defineProps({
   map: { type: Object, required: true },
@@ -19,6 +21,16 @@ const props = defineProps({
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
 
 const points = computed(() => props.map.outline.map((p) => `${p.x},${p.y}`).join(' '))
+
+const water = computed(() =>
+  Object.entries(props.map.terrain)
+    .filter(([, type]) => type === TERRAIN_TYPES.WATER)
+    .map(([cell]) => {
+      const [x, y] = cell.split(',').map(Number)
+      return `M${x} ${y}h1v1h-1Z`
+    })
+    .join(''),
+)
 
 // все линии клеток одним path: M - начало линии, V/H - вертикальная/горизонтальная до
 const grid = computed(() => {
@@ -33,6 +45,10 @@ const grid = computed(() => {
 // non-scaling-stroke: толщина линий в пикселях экрана, а не в клетках
 .map-ground {
   fill: #5a8a3c;
+
+  &__water {
+    fill: #387fa8;
+  }
 
   &__grid {
     fill: none;

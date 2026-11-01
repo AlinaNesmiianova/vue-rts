@@ -2,11 +2,14 @@
 // характеристики лежат в таблицах: новый тип = новая строка, новое свойство = новое поле
 // size - сторона квадрата в клетках (на экране ромб), скорость считается в клетках в секунду
 
+import { TERRAIN_TYPES } from './map.js'
+
 export const KINDS = { UNIT: 'unit', BUILDING: 'building' }
 
 export const UNIT_TYPES = {
-  slow: { name: 'Медленный', speed: 1.5, size: 0.8, color: '#3d6fb8' },
-  fast: { name: 'Быстрый', speed: 3, size: 0.8, color: '#b8432f' },
+  slow: { name: 'Медленный', speed: 1.5, size: 0.8, color: '#3d6fb8', terrain: TERRAIN_TYPES.LAND },
+  fast: { name: 'Быстрый', speed: 3, size: 0.8, color: '#b8432f', terrain: TERRAIN_TYPES.LAND },
+  swimmer: { name: 'Пловец', speed: 2, size: 0.8, color: '#e0c55a', terrain: TERRAIN_TYPES.WATER },
 }
 
 // здание size x size клеток; порядок здесь = порядок кнопок в панели стройки
@@ -38,6 +41,7 @@ export const createStartEntities = () => [
   createUnit('slow', -2, 2),
   createUnit('slow', 0, 3),
   createUnit('fast', 3, 1),
+  createUnit('swimmer', 20, 0),
 ]
 
 // шаг к цели за dt секунд: путь = скорость * dt, поэтому скорость не зависит от fps

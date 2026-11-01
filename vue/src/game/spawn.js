@@ -1,5 +1,5 @@
 // спавн: где рядом со зданием появится новый персонаж
-import { containsPoint } from './map.js'
+import { canStandOnTerrain } from './map.js'
 import { BUILDING_TYPES, isBuilding, typeOf, UNIT_TYPES } from './entities.js'
 import { toBox } from './placement.js'
 
@@ -46,7 +46,7 @@ export const findSpawnPoint = (map, entities, building, unitType) => {
 
   for (let ring = 1; ring <= MAX_RING; ring++) {
     const free = ringCells(box, ring)
-      .filter((p) => containsPoint(map, p) && entities.every((entity) => isClear(p, r, entity)))
+      .filter((p) => canStandOnTerrain(map, p, r, UNIT_TYPES[unitType].terrain) && entities.every((entity) => isClear(p, r, entity)))
       .sort((a, b) => distance(a) - distance(b))
     if (free.length) {
       return free[0]

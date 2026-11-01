@@ -1,5 +1,5 @@
 // множественное выделение: рамка на экране и строй, в который встает группа
-import { containsPoint } from './map.js'
+import { canStandOnTerrain } from './map.js'
 import { BUILDING_TYPES, isBuilding, isUnit, UNIT_TYPES } from './entities.js'
 import { toBox } from './placement.js'
 
@@ -45,7 +45,7 @@ const isFreeOfUnits = (entities, p, radius, groupIds) =>
 
 // count мест вокруг цели: кольцами квадратов, ближние первыми
 // места в зданиях, за картой и занятые чужими персонажами пропускаем; groupIds - кто встает в строй
-export const formationSlots = (map, entities, target, count, radius, groupIds = []) => {
+export const formationSlots = (map, entities, target, count, radius, groupIds = [], terrain) => {
   const slots = []
   for (let ring = 0; slots.length < count && ring <= count; ring++) {
     const ringSlots = []
@@ -58,7 +58,7 @@ export const formationSlots = (map, entities, target, count, radius, groupIds = 
     }
     ringSlots
       .filter(
-        (p) => containsPoint(map, p) && isFreeOfBuildings(entities, p, radius) && isFreeOfUnits(entities, p, radius, groupIds),
+        (p) => canStandOnTerrain(map, p, radius, terrain) && isFreeOfBuildings(entities, p, radius) && isFreeOfUnits(entities, p, radius, groupIds),
       )
       .sort((a, b) => Math.hypot(a.x - target.x, a.y - target.y) - Math.hypot(b.x - target.x, b.y - target.y))
       .forEach((p) => slots.push(p))
