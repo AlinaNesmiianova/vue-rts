@@ -1,36 +1,35 @@
 // Игровые сущности и их характеристики.
 // speed — клетки в секунду, attackSpeed — количество ударов в секунду.
 export const KINDS = { UNIT: 'unit', BUILDING: 'building' }
-export const TEAMS = { PLAYER: 'player', ENEMY: 'enemy' }
 
 export const UNIT_TYPES = {
   slow: {
     name: 'Медленный', maxHp: 120, attack: 18, speed: 1.5, attackSpeed: 1,
-    size: 0.8, color: '#3d6fb8', enemyColor: '#c85855',
+    size: 0.8,
   },
   fast: {
     name: 'Быстрый', maxHp: 75, attack: 11, speed: 3, attackSpeed: 2,
-    size: 0.8, color: '#37a5a0', enemyColor: '#df8b49',
+    size: 0.8,
   },
 }
 
 export const BUILDING_TYPES = {
-  house: { name: 'Дом', maxHp: 160, size: 2, color: '#8a6d4b', enemyColor: '#9e5651' },
-  castle: { name: 'Замок', maxHp: 400, size: 4, color: '#7d7f86', enemyColor: '#9b596b' },
+  house: { name: 'Дом', maxHp: 160, size: 2 },
+  castle: { name: 'Замок', maxHp: 400, size: 4 },
 }
 
 let nextId = 1
 
-export const createUnit = (type, x, y, team = TEAMS.PLAYER) => ({
-  id: nextId++, kind: KINDS.UNIT, type, team, x, y,
+export const createUnit = (type, x, y, groupId = 'group1') => ({
+  id: nextId++, kind: KINDS.UNIT, type, groupId, x, y,
   hp: UNIT_TYPES[type].maxHp,
   target: null, // приказ перемещения
   attackTargetId: null, // id цели для атаки
   attackCooldown: 0, // секунды до следующего удара
 })
 
-export const createBuilding = (type, x, y, team = TEAMS.PLAYER) => ({
-  id: nextId++, kind: KINDS.BUILDING, type, team, x, y,
+export const createBuilding = (type, x, y, groupId = 'group1') => ({
+  id: nextId++, kind: KINDS.BUILDING, type, groupId, x, y,
   hp: BUILDING_TYPES[type].maxHp,
 })
 
@@ -40,7 +39,7 @@ export const isBuilding = (entity) => entity.kind === KINDS.BUILDING
 
 // атаковать можно только живого противника, будь то персонаж или здание
 export const canAttack = (unit, target) =>
-  !!unit && isUnit(unit) && unit.hp > 0 && !!target && target.hp > 0 && unit.team !== target.team
+  !!unit && isUnit(unit) && unit.hp > 0 && !!target && target.hp > 0 && unit.groupId !== target.groupId
 
 // Ищем цель по координатам курсора. Допуск помогает попадать по небольшим юнитам
 // в изометрической проекции. Сначала проверяем саму фигуру, затем область рядом.
@@ -64,19 +63,6 @@ export const entityAtPoint = (entities, point) => {
     ?? visible.find((entity) => containsEntity(entity, point, HIT_PADDING))
     ?? null
 }
-
-// Две команды: синие и красные, обе управляются игроком.
-export const createStartEntities = () => [
-  createBuilding('castle', -8, -8),
-  createBuilding('house', 7, -5),
-  createUnit('slow', -2, 2),
-  createUnit('slow', 0, 3),
-  createUnit('fast', 3, 1),
-  createBuilding('castle', 12, 7, TEAMS.ENEMY),
-  createBuilding('house', 11, -4, TEAMS.ENEMY),
-  createUnit('slow', 6, 4, TEAMS.ENEMY),
-  createUnit('fast', 8, 3, TEAMS.ENEMY),
-]
 
 // Передвигает юнита к точке с учётом скорости и прошедшего времени.
 export const stepToTarget = (unit, dt) => {
