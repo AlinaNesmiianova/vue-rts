@@ -1,5 +1,5 @@
 // стройка: куда встанет здание и можно ли его там поставить
-import { containsPoint } from './map.js'
+import { containsPoint, terrainAt, TERRAIN_TYPES } from './map.js'
 import { BUILDING_TYPES, isBuilding, typeOf } from './entities.js'
 
 // углы проверяем чуть внутри здания, чтобы край карты не считался выходом за нее
@@ -97,7 +97,7 @@ const overlaps = (box, entity) => {
   return Math.hypot(entity.x - nearestX, entity.y - nearestY) < size / 2
 }
 
-// здание целиком на карте, не залезает на другие здания и не стоит на персонажах
+// здание целиком на суше, не залезает на другие здания и не стоит на персонажах
 export const canPlaceBuilding = (map, entities, type, point) => {
   const box = toBox(point.x, point.y, BUILDING_TYPES[type].size)
 
@@ -109,6 +109,15 @@ export const canPlaceBuilding = (map, entities, type, point) => {
   ]
   if (!corners.every((corner) => containsPoint(map, corner))) {
     return false
+  }
+
+  // проверяем каждую клетку под зданием: вода может оказаться и между его углами
+  for (let x = Math.floor(box.minX); x < Math.ceil(box.maxX); x++) {
+    for (let y = Math.floor(box.minY); y < Math.ceil(box.maxY); y++) {
+      if (terrainAt(map, { x: x + 0.5, y: y + 0.5 }) !== TERRAIN_TYPES.LAND) {
+        return false
+      }
+    }
   }
 
   return entities.every((entity) => !overlaps(box, entity))
