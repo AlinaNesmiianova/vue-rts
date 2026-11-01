@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { advanceBattle } from './combat.js'
-import { BUILDING_TYPES, createBuilding, createUnit, entityAtPoint, TEAMS, UNIT_TYPES } from './entities.js'
+import { BUILDING_TYPES, createBuilding, createUnit, entityAtPoint, UNIT_TYPES } from './entities.js'
 
 const attack = (attacker, defender) => {
   attacker.attackTargetId = defender.id
@@ -20,7 +20,7 @@ test('сущности получают HP и характеристики из 
 
 test('атака наносит урон раз в интервал и не наносит непрерывный урон каждый кадр', () => {
   const unit = createUnit('slow', 0, 0)
-  const enemy = createUnit('slow', 1.2, 0, TEAMS.ENEMY)
+  const enemy = createUnit('slow', 1.2, 0, 'group2')
   let entities = attack(unit, enemy)
   entities = advanceBattle(entities, 0.02)
   assert.equal(enemy.hp, 120 - 18)
@@ -32,7 +32,7 @@ test('атака наносит урон раз в интервал и не на
 
 test('быстрый юнит атакует с частотой 2 удара в секунду', () => {
   const unit = createUnit('fast', 0, 0)
-  const enemy = createBuilding('castle', 1.5, 0, TEAMS.ENEMY)
+  const enemy = createBuilding('castle', 1.5, 0, 'group2')
   let entities = attack(unit, enemy)
   entities = advanceBattle(entities, 0.01)
   assert.equal(enemy.hp, 400 - 11)
@@ -44,7 +44,7 @@ test('быстрый юнит атакует с частотой 2 удара в
 
 test('юнит приближается к врагу и прекращает движение при достижении дистанции атаки', () => {
   const unit = createUnit('fast', -8, 0)
-  const building = createBuilding('house', 0, 0, TEAMS.ENEMY)
+  const building = createBuilding('house', 0, 0, 'group2')
   let entities = attack(unit, building)
   for (let i = 0; i < 500; i++) entities = advanceBattle(entities, 0.02)
   assert.ok(unit.x > -8)
@@ -60,7 +60,7 @@ test('свой объект не атакуется; уничтоженный и
   assert.equal(anotherAlly.hp, 120)
   assert.equal(ally.attackTargetId, null)
 
-  const victim = createUnit('slow', 0.8, 0, TEAMS.ENEMY)
+  const victim = createUnit('slow', 0.8, 0, 'group2')
   victim.hp = 5
   ally.attackTargetId = victim.id
   const survivors = advanceBattle([ally, victim], 0.02)
@@ -70,7 +70,7 @@ test('свой объект не атакуется; уничтоженный и
 
 test('обе команды перемещаются с заданной скоростью', () => {
   const blue = createUnit('slow', 0, 0)
-  const red = createUnit('fast', 0, 2, TEAMS.ENEMY)
+  const red = createUnit('fast', 0, 2, 'group2')
   blue.target = { x: 10, y: 0 }
   red.target = { x: 10, y: 2 }
 
@@ -83,7 +83,7 @@ test('обе команды перемещаются с заданной ско�
 
 test('красный юнит атакует синего персонажа с заданной силой и частотой', () => {
   const blue = createUnit('slow', 0, 0)
-  const red = createUnit('fast', 1, 0, TEAMS.ENEMY)
+  const red = createUnit('fast', 1, 0, 'group2')
   let entities = attack(red, blue)
 
   entities = advanceBattle(entities, 0.01)
@@ -95,7 +95,7 @@ test('красный юнит атакует синего персонажа с 
 })
 
 test('красный юнит подходит к синему зданию и разрушает его', () => {
-  const red = createUnit('fast', -10, 0, TEAMS.ENEMY)
+  const red = createUnit('fast', -10, 0, 'group2')
   const blueHouse = createBuilding('house', 0, 0)
   let entities = attack(red, blueHouse)
 
@@ -106,7 +106,7 @@ test('красный юнит подходит к синему зданию и �
 })
 
 test('ни красные, ни синие не могут атаковать своих персонажей и здания', () => {
-  for (const team of [TEAMS.PLAYER, TEAMS.ENEMY]) {
+  for (const team of ['group1', 'group2']) {
     const attacker = createUnit('fast', 0, 0, team)
     const ally = createUnit('slow', 1, 0, team)
     const house = createBuilding('house', 1.5, 0, team)
@@ -125,7 +125,7 @@ test('ни красные, ни синие не могут атаковать с
 
 test('обе команды могут одновременно получать урон друг от друга', () => {
   const blue = createUnit('slow', 0, 0)
-  const red = createUnit('slow', 1.2, 0, TEAMS.ENEMY)
+  const red = createUnit('slow', 1.2, 0, 'group2')
   blue.attackTargetId = red.id
   red.attackTargetId = blue.id
 
@@ -136,7 +136,7 @@ test('обе команды могут одновременно получать
 
 
 test('первый правый клик рядом с небольшой фигурой распознает цель', () => {
-  const red = createUnit('fast', 0, 0, TEAMS.ENEMY)
+  const red = createUnit('fast', 0, 0, 'group2')
   const blue = createUnit('slow', 3, 0)
   // Точка чуть за краем круга (радиус 0.4), но в допуске клика.
   assert.equal(entityAtPoint([red, blue], { x: 3.6, y: 0 }), blue)
@@ -148,7 +148,7 @@ test('первый правый клик рядом с небольшой фиг
 
 test('полученный с первого клика приказ немедленно наносит урон на дистанции атаки', () => {
   const blue = createUnit('slow', 0, 0)
-  const red = createUnit('slow', 1.2, 0, TEAMS.ENEMY)
+  const red = createUnit('slow', 1.2, 0, 'group2')
   const clicked = entityAtPoint([blue, red], { x: 1.65, y: 0 })
   assert.equal(clicked, red)
   blue.attackTargetId = clicked.id
@@ -158,7 +158,7 @@ test('полученный с первого клика приказ немед�
 
 test('юнит бьет противника в том же кадре, когда доходит до дистанции атаки', () => {
   const blue = createUnit('slow', 0, 0)
-  const red = createUnit('slow', 1.55, 0, TEAMS.ENEMY)
+  const red = createUnit('slow', 1.55, 0, 'group2')
   blue.attackTargetId = red.id
   advanceBattle([blue, red], 0.1)
   assert.equal(red.hp, UNIT_TYPES.slow.maxHp - UNIT_TYPES.slow.attack)

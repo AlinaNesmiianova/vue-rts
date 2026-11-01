@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createBuilding, createUnit, TEAMS } from './entities.js'
+import { createBuilding, createUnit } from './entities.js'
 import { addOrders, ORDER_TYPES } from './events.js'
 import { advanceFrame } from './frame.js'
 
@@ -54,7 +54,7 @@ test('разные юниты выполняют собственные очер
 
 test('атака после перемещения запускается только после достижения точки', () => {
   const unit = createUnit('fast', 0, 0)
-  const enemy = createBuilding('house', 5, 0, TEAMS.ENEMY)
+  const enemy = createBuilding('house', 5, 0, 'group2')
   let queue = addOrders([], 1, [unit.id], move(2, 0))
   queue = addOrders(queue.events, queue.nextEventId, [unit.id], { type: ORDER_TYPES.ATTACK, targetId: enemy.id }, true)
 
@@ -72,7 +72,7 @@ test('атака после перемещения запускается тол
 
 test('исчезнувшая цель не блокирует следующий приказ', () => {
   const unit = createUnit('fast', 0, 0)
-  const enemy = createUnit('slow', 1, 0, TEAMS.ENEMY)
+  const enemy = createUnit('slow', 1, 0, 'group2')
   let queue = addOrders([], 1, [unit.id], { type: ORDER_TYPES.ATTACK, targetId: enemy.id })
   queue = addOrders(queue.events, queue.nextEventId, [unit.id], move(2, 0), true)
 

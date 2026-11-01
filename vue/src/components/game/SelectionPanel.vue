@@ -3,11 +3,8 @@
     <template v-if="entity">
       <div class="selection-panel__heading">
         <strong>{{ type.name }}</strong>
-        <span
-          class="selection-panel__team"
-          :class="entity.team === TEAMS.PLAYER ? 'selection-panel__team--player' : 'selection-panel__team--enemy'"
-        >
-          {{ entity.team === TEAMS.PLAYER ? 'Синие' : 'Красные' }}
+        <span class="selection-panel__group" :style="{ borderColor: group?.color, color: group?.color }">
+          {{ group?.name }}
         </span>
       </div>
       <div class="selection-panel__details">
@@ -23,13 +20,13 @@
         <span>
           {{ orders.length ? (orders[0].type === 'attack' ? 'Атакует противника' : 'Перемещается') : 'Ожидает приказа' }} · Команд: {{ orders.length }}
         </span>
-        <button type="button" class="selection-panel__destroy" @click="bus.emit(EVENTS.SELF_DESTRUCT, entity.id)">
+        <button v-if="phase !== 'finished'" type="button" class="selection-panel__destroy" @click="bus.emit(EVENTS.SELF_DESTRUCT, entity.id)">
           Самоуничтожение
         </button>
       </div>
     </template>
     <template v-else>
-      <strong>Управление:</strong> ЛКМ — выбрать красного или синего бойца · ПКМ на земле — идти · ПКМ на противнике — атаковать · Shift + ПКМ — добавить приказ в очередь · WASD — камера · Ctrl + колесо — масштаб
+      <strong>Управление:</strong> ЛКМ — выбрать бойца любой группы · ПКМ — идти / атаковать другую группу · Shift + ПКМ — в очередь · Пробел — пауза · WASD — камера · Ctrl + колесо — масштаб
     </template>
   </div>
 </template>
@@ -38,12 +35,14 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
-import { isUnit, TEAMS, typeOf } from '@/game/entities'
+import { isUnit, typeOf } from '@/game/entities'
 
 const store = useStore()
 const entity = computed(() => store.getters['game/getSelected'][0] ?? null)
 const type = computed(() => entity.value && typeOf(entity.value))
+const group = computed(() => entity.value && store.getters['game/getGroup'](entity.value.groupId))
 const orders = computed(() => entity.value ? store.getters['game/getUnitEvents'](entity.value.id) : [])
+const phase = computed(() => store.state.game.phase)
 </script>
 
 <style scoped lang="scss">
@@ -69,9 +68,7 @@ const orders = computed(() => entity.value ? store.getters['game/getUnitEvents']
   &__details strong { color: #fff; }
   &__actions { margin-top: 10px; }
   &__actions span { color: #b6c2cd; }
-  &__team { padding: 1px 7px; border-radius: 4px; font-size: 12px; }
-  &__team--player { background: #183c50; color: #8acdfb; }
-  &__team--enemy { background: #4d2629; color: #ffaaa8; }
+  &__group { padding: 1px 7px; border: 1px solid; border-radius: 4px; font-size: 12px; }
   &__destroy {
     padding: 6px 10px;
     border: 1px solid #d96161;

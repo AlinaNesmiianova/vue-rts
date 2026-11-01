@@ -26,7 +26,7 @@
       <rect x="-21" y="-3" width="42" height="7" rx="2" fill="#1d2226" stroke="#0d1115" stroke-width="1" />
       <rect
         x="-20" y="-2" :width="40 * entity.hp / typeOf(entity).maxHp" height="5" rx="1"
-        :fill="entity.team === TEAMS.PLAYER ? '#71d4a0' : '#f17777'"
+        :fill="groupColor(entity.groupId)"
       />
     </g>
 
@@ -42,7 +42,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
 import { clamp, screenToWorld } from '@/game/camera'
-import { entityAtPoint, isBuilding, TEAMS, typeOf } from '@/game/entities'
+import { entityAtPoint, isBuilding, isUnit, typeOf } from '@/game/entities'
 import { useGameLoop } from '@/composables/useGameLoop'
 import { useKeyboard } from '@/composables/useKeyboard'
 import MapGround from './MapGround.vue'
@@ -62,6 +62,7 @@ const buildings = computed(() => store.getters['game/getBuildings'])
 const units = computed(() => store.getters['game/getUnits'])
 const entities = computed(() => store.state.game.entities)
 const toScreen = (point) => store.getters['game/toScreen'](point)
+const groupColor = (id) => store.getters['game/getGroup'](id)?.color ?? '#999999'
 const matrix = computed(() => store.getters['game/getCameraMatrix'])
 const labels = computed(() => {
   const toScreen = store.getters['game/toScreen']
@@ -81,7 +82,8 @@ const onRightClick = (e) => {
   const point = toLocal(e)
   const { camera, viewport, entities } = store.state.game
   const target = entityAtPoint(entities, screenToWorld(camera, viewport, point))
-  if (target) bus.emit(EVENTS.ATTACK, { targetId: target.id, append: e.shiftKey })
+  const selectedUnit = store.getters['game/getSelected'].find(isUnit)
+  if (target && selectedUnit && target.groupId !== selectedUnit.groupId) bus.emit(EVENTS.ATTACK, { targetId: target.id, append: e.shiftKey })
   else bus.emit(EVENTS.MOVE, { point, append: e.shiftKey })
 }
 

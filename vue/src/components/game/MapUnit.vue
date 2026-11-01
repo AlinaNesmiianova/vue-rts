@@ -29,9 +29,9 @@
     :cx="unit.x"
     :cy="unit.y"
     :r="type.size / 2"
-    :fill="unit.team === TEAMS.ENEMY ? type.enemyColor : type.color"
+    :fill="colorOf(group, unit)"
     class="map-unit"
-    :class="{ 'map-unit--selected': selected, 'map-unit--enemy': unit.team === TEAMS.ENEMY }"
+    :class="{ 'map-unit--selected': selected }"
     @mousedown.left.exact.stop="bus.emit(EVENTS.SELECT, unit.id)"
   />
 
@@ -50,7 +50,8 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
-import { TEAMS, UNIT_TYPES } from '@/game/entities'
+import { UNIT_TYPES } from '@/game/entities'
+import { colorOf } from '@/game/groups'
 
 const props = defineProps({
   unit: { type: Object, required: true },
@@ -58,10 +59,11 @@ const props = defineProps({
 
 const store = useStore()
 const type = computed(() => UNIT_TYPES[props.unit.type])
+const group = computed(() => store.getters['game/getGroup'](props.unit.groupId))
 const selected = computed(() => store.getters['game/isSelected'](props.unit.id))
 const orders = computed(() => store.getters['game/getUnitEvents'](props.unit.id))
 const attackTarget = computed(() => store.state.game.entities.find((entity) => entity.id === orders.value[0]?.targetId))
-const routePoints = computed(() => orders.value
+const routePoints = computed(() => orders.value.slice(0, 8)
   .map((order) => order.type === 'move' ? order.target : store.state.game.entities.find((entity) => entity.id === order.targetId))
   .filter(Boolean))
 </script>
@@ -76,10 +78,6 @@ const routePoints = computed(() => orders.value
   &--selected {
     stroke: #fff;
     stroke-width: 3;
-  }
-
-  &--enemy:not(.map-unit--selected) {
-    stroke: #692523;
   }
 
   &__route {
