@@ -21,7 +21,7 @@
       </div>
       <div v-if="isUnit(entity)" class="selection-panel__actions">
         <span>
-          {{ entity.attackTargetId !== null ? 'Атакует противника' : entity.target ? 'Перемещается' : 'Ожидает приказа' }}
+          {{ orders.length ? (orders[0].type === 'attack' ? 'Атакует противника' : 'Перемещается') : 'Ожидает приказа' }} · Команд: {{ orders.length }}
         </span>
         <button type="button" class="selection-panel__destroy" @click="bus.emit(EVENTS.SELF_DESTRUCT, entity.id)">
           Самоуничтожение
@@ -29,7 +29,7 @@
       </div>
     </template>
     <template v-else>
-      <strong>Управление:</strong> ЛКМ — выбрать красного или синего бойца · ПКМ на земле — идти · ПКМ на противнике — атаковать · WASD — камера · Ctrl + колесо — масштаб
+      <strong>Управление:</strong> ЛКМ — выбрать красного или синего бойца · ПКМ на земле — идти · ПКМ на противнике — атаковать · Shift + ПКМ — добавить приказ в очередь · WASD — камера · Ctrl + колесо — масштаб
     </template>
   </div>
 </template>
@@ -43,6 +43,7 @@ import { isUnit, TEAMS, typeOf } from '@/game/entities'
 const store = useStore()
 const entity = computed(() => store.getters['game/getSelected'][0] ?? null)
 const type = computed(() => entity.value && typeOf(entity.value))
+const orders = computed(() => entity.value ? store.getters['game/getUnitEvents'](entity.value.id) : [])
 </script>
 
 <style scoped lang="scss">
