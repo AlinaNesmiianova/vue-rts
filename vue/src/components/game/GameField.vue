@@ -81,8 +81,8 @@ const onRightClick = (e) => {
   const point = toLocal(e)
   const { camera, viewport, entities } = store.state.game
   const target = entityAtPoint(entities, screenToWorld(camera, viewport, point))
-  if (target) bus.emit(EVENTS.ATTACK, target.id)
-  else bus.emit(EVENTS.MOVE, point)
+  if (target) bus.emit(EVENTS.ATTACK, { targetId: target.id, append: e.shiftKey })
+  else bus.emit(EVENTS.MOVE, { point, append: e.shiftKey })
 }
 
 // щипок на тачпаде (и ctrl+колесо) приходит с ctrlKey -> зум, свайп двумя пальцами -> сдвиг камеры
