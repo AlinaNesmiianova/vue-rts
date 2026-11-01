@@ -23,6 +23,7 @@ export const BUILDING_TYPES = {
   barracks: { name: 'Казарма', size: 3, color: '#6b5b7b', spawns: 'slow' },
   castle: { name: 'Замок', size: 4, color: '#7d7f86', spawns: 'fast' },
   shipyard: { name: 'Верфь', size: 6, color: '#96724e', spawns: ['boat', 'ship', 'largeShip'] },
+  waterBase: { name: 'Водная база', size: 3, color: '#438a98', terrain: TERRAIN_TYPES.WATER, spawns: 'swimmer' },
 }
 
 let nextId = 1

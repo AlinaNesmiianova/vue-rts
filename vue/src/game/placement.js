@@ -150,7 +150,7 @@ const overlaps = (box, entity) => {
   return Math.hypot(entity.x - nearestX, entity.y - nearestY) < size / 2
 }
 
-// обычные здания целиком на суше, верфь поперек берега, корабли на воде или в доке
+// здания на своей местности (по умолчанию суша), верфь поперек берега, корабли на воде или в доке
 export const canPlaceBuilding = (map, entities, type, point) => {
   if (UNIT_TYPES[type]?.ship) return canPlaceUnit(map, entities, UNIT_TYPES[type], point)
   const box = toBox(point.x, point.y, BUILDING_TYPES[type].size)
@@ -168,10 +168,11 @@ export const canPlaceBuilding = (map, entities, type, point) => {
   if (type === 'shipyard') {
     if (!shipyardDirection(map, point)) return false
   } else {
+    const terrain = BUILDING_TYPES[type].terrain ?? TERRAIN_TYPES.LAND
     // проверяем каждую клетку под зданием: вода может оказаться и между его углами
     for (let x = Math.floor(box.minX); x < Math.ceil(box.maxX); x++) {
       for (let y = Math.floor(box.minY); y < Math.ceil(box.maxY); y++) {
-        if (terrainAt(map, { x: x + 0.5, y: y + 0.5 }) !== TERRAIN_TYPES.LAND) {
+        if (terrainAt(map, { x: x + 0.5, y: y + 0.5 }) !== terrain) {
           return false
         }
       }
