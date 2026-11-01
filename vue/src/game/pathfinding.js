@@ -1,7 +1,6 @@
 // обход объектов: ищем путь по клеткам (A*), потом срезаем лишние повороты
-import { canStandOnTerrain } from './map.js'
 import { typeOf } from './entities.js'
-import { isClearOfEntity, isSegmentClear } from './placement.js'
+import { canPlaceUnit, canUseUnitTerrain, isSegmentClear } from './placement.js'
 
 // 8 соседей клетки: 4 по сторонам и 4 по диагонали
 const NEIGHBORS = [
@@ -21,27 +20,25 @@ const cellOf = (grid, point) => ({ i: Math.round(point.x - grid.origin.x), j: Ma
 const pointOf = (grid, cell) => ({ x: grid.origin.x + cell.i, y: grid.origin.y + cell.j })
 
 // все, что нужно поиску: местность, размер персонажа и остальные объекты
-const createGrid = (map, entities, radius, terrain, from, origin) => ({
-  map, radius, terrain, from, origin,
+const createGrid = (map, entities, radius, from, origin) => ({
+  map, radius, from, origin, unitType: typeOf(from),
   obstacles: entities.filter((entity) => entity.id !== from.id),
 })
 
 const isFreeCell = (grid, cell) => isFreePoint(grid, pointOf(grid, cell))
 
-const isFreePoint = (grid, p) =>
-  canStandOnTerrain(grid.map, p, grid.radius, grid.terrain) &&
-  grid.obstacles.every((entity) => isClearOfEntity(p, grid.radius, entity))
+const isFreePoint = (grid, p) => canPlaceUnit(grid.map, grid.obstacles, grid.unitType, p)
 
 // можно ли пройти по прямой: проверяем точки отрезка с маленьким шагом
 const canWalkStraight = (grid, from, to) => {
-  if (!isFreePoint(grid, to) || !grid.obstacles.every((entity) => isSegmentClear(from, to, grid.radius, entity))) {
+  if (!isFreePoint(grid, to) || !grid.obstacles.every((entity) => isSegmentClear(from, to, grid.radius, entity, grid.unitType))) {
     return false
   }
   const steps = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / CHECK_STEP)
   for (let k = 1; k <= steps; k++) {
     const t = k / steps
     const point = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
-    if (!canStandOnTerrain(grid.map, point, grid.radius, grid.terrain)) {
+    if (!canUseUnitTerrain(grid.map, grid.obstacles, grid.unitType, point)) {
       return false
     }
   }
@@ -146,7 +143,7 @@ const smoothPath = (grid, points) => {
 // путь персонажа от from к to в обход объектов: список точек, по которым идти
 // цель в здании - идем к ближайшей свободной клетке, цель недостижима - подходим как можно ближе
 export const findPath = (map, entities, from, to, radius) => {
-  const grid = createGrid(map, entities, radius, typeOf(from).terrain, from, to)
+  const grid = createGrid(map, entities, radius, from, to)
   if (canWalkStraight(grid, from, to)) {
     return [to]
   }

@@ -1,7 +1,6 @@
 // множественное выделение: рамка на экране и строй, в который встает группа
-import { canStandOnTerrain } from './map.js'
-import { BUILDING_TYPES, isBuilding, isUnit, UNIT_TYPES } from './entities.js'
-import { toBox } from './placement.js'
+import { isBuilding, isUnit, UNIT_TYPES } from './entities.js'
+import { canUseUnitTerrain, isClearOfEntity } from './placement.js'
 
 // рамка меньше этого (в пикселях) - это не рамка, а просто клик
 const CLICK_SIZE = 4
@@ -25,11 +24,8 @@ export const insideRect = (rect, p) => p.x >= rect.minX && p.x <= rect.maxX && p
 export const toggleId = (ids, id) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id])
 
 // точка не в здании (с запасом на радиус персонажа)
-const isFreeOfBuildings = (entities, p, radius) =>
-  entities.filter(isBuilding).every((b) => {
-    const box = toBox(b.x, b.y, BUILDING_TYPES[b.type].size + radius * 2)
-    return p.x <= box.minX || p.x >= box.maxX || p.y <= box.minY || p.y >= box.maxY
-  })
+const isFreeOfBuildings = (entities, p, radius, unitType) =>
+  entities.filter(isBuilding).every((b) => isClearOfEntity(p, radius, b, unitType))
 
 // где персонаж будет стоять: идущий - в конце пути, стоящий - там, где он сейчас
 const restPoint = (unit) => unit.path[unit.path.length - 1] ?? unit.target ?? unit
@@ -46,8 +42,9 @@ const isFreeOfUnits = (entities, p, radius, groupIds) =>
 
 // count мест вокруг цели: кольцами квадратов, ближние первыми
 // места в зданиях, за картой и занятые чужими персонажами пропускаем; groupIds - кто встает в строй
-export const formationSlots = (map, entities, target, count, radius, groupIds = [], terrain) => {
+export const formationSlots = (map, entities, target, count, radius, groupIds = [], terrain, ship = false) => {
   const slots = []
+  const unitType = { size: radius * 2, terrain, ship }
   const spacing = Math.max(SPACING, radius * 4)
   for (let ring = 0; slots.length < count && ring <= count; ring++) {
     const ringSlots = []
@@ -60,7 +57,7 @@ export const formationSlots = (map, entities, target, count, radius, groupIds = 
     }
     ringSlots
       .filter(
-        (p) => canStandOnTerrain(map, p, radius, terrain) && isFreeOfBuildings(entities, p, radius) && isFreeOfUnits(entities, p, radius, groupIds),
+        (p) => canUseUnitTerrain(map, entities, unitType, p) && isFreeOfBuildings(entities, p, radius, unitType) && isFreeOfUnits(entities, p, radius, groupIds),
       )
       .sort((a, b) => Math.hypot(a.x - target.x, a.y - target.y) - Math.hypot(b.x - target.x, b.y - target.y))
       .forEach((p) => slots.push(p))

@@ -10,15 +10,19 @@ export const UNIT_TYPES = {
   slow: { name: 'Медленный', speed: 1.5, size: 0.8, color: '#3d6fb8', terrain: TERRAIN_TYPES.LAND },
   fast: { name: 'Быстрый', speed: 3, size: 0.8, color: '#b8432f', terrain: TERRAIN_TYPES.LAND },
   swimmer: { name: 'Пловец', speed: 2, size: 0.8, color: '#e0c55a', terrain: TERRAIN_TYPES.WATER },
+  boat: { name: 'Лодка', speed: 3, size: 0.8, color: '#d6ac6a', terrain: TERRAIN_TYPES.WATER, ship: true },
+  ship: { name: 'Корабль', speed: 2, size: 1.6, color: '#bd8050', terrain: TERRAIN_TYPES.WATER, ship: true },
+  largeShip: { name: 'Большой корабль', speed: 1.5, size: 2.4, color: '#926347', terrain: TERRAIN_TYPES.WATER, ship: true },
 }
 
 // здание size x size клеток; порядок здесь = порядок кнопок в панели стройки
-// spawns - тип персонажа, которого здание создает (нет поля - здание никого не создает)
+// spawns - тип персонажа или список типов, которые здание создает (нет поля - никого не создает)
 export const BUILDING_TYPES = {
   tower: { name: 'Башня', size: 1, color: '#6f7d5c' },
   house: { name: 'Дом', size: 2, color: '#8a6d4b' },
   barracks: { name: 'Казарма', size: 3, color: '#6b5b7b', spawns: 'slow' },
   castle: { name: 'Замок', size: 4, color: '#7d7f86', spawns: 'fast' },
+  shipyard: { name: 'Верфь', size: 6, color: '#96724e', spawns: ['boat', 'ship', 'largeShip'] },
 }
 
 let nextId = 1
@@ -26,7 +30,12 @@ let nextId = 1
 // target - текущая цель, path - следующие точки пути, repathDelay - пауза до следующей попытки обхода
 export const createUnit = (type, x, y) => ({ id: nextId++, kind: KINDS.UNIT, type, x, y, target: null, path: [], repathDelay: 0 })
 
-export const createBuilding = (type, x, y) => ({ id: nextId++, kind: KINDS.BUILDING, type, x, y })
+export const createBuilding = (type, x, y, direction = 'east') => ({ id: nextId++, kind: KINDS.BUILDING, type, x, y, direction })
+
+// корпус вписан в круг, который используется при проверке столкновений
+export const shipPoints = (x, y, size) => [
+  [0.5, 0], [0.25, 0.3], [-0.35, 0.3], [-0.45, 0], [-0.35, -0.3], [0.25, -0.3],
+].map(([dx, dy]) => `${x + dx * size},${y + dy * size}`).join(' ')
 
 export const typeOf = (entity) => (entity.kind === KINDS.UNIT ? UNIT_TYPES : BUILDING_TYPES)[entity.type]
 

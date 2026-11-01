@@ -11,14 +11,14 @@
       <span>, клетка ({{ Math.floor(entity.x) }}, {{ Math.floor(entity.y) }})</span>
 
       <!-- здание, которое создает персонажей: кнопки спавна блоками -->
-      <template v-if="spawnType">
-        <span class="selection-panel__label">Создать: {{ spawnType.name }}</span>
+      <template v-for="spawnType in spawnTypes" :key="spawnType">
+        <span class="selection-panel__label">Создать: {{ UNIT_TYPES[spawnType].name }}</span>
         <button
           v-for="count in SPAWN_COUNTS"
           :key="count"
           type="button"
           class="selection-panel__action"
-          @click="bus.emit(EVENTS.SPAWN, { id: entity.id, count })"
+          @click="bus.emit(EVENTS.SPAWN, { id: entity.id, count, type: spawnType })"
         >
           ×{{ count }}
         </button>
@@ -53,12 +53,16 @@ const groups = computed(() => {
     .join(', ')
 })
 const type = computed(() => entity.value && typeOf(entity.value))
-const spawnType = computed(() => UNIT_TYPES[type.value?.spawns] ?? null)
+const spawnTypes = computed(() => {
+  const spawns = type.value?.spawns
+  return Array.isArray(spawns) ? spawns : spawns ? [spawns] : []
+})
 </script>
 
 <style scoped lang="scss">
 .selection-panel {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   padding: 6px 12px;
   border-radius: 4px;

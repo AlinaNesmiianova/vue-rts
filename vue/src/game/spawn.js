@@ -1,7 +1,6 @@
 // спавн: где рядом со зданием появится новый персонаж
-import { canStandOnTerrain } from './map.js'
 import { BUILDING_TYPES, UNIT_TYPES } from './entities.js'
-import { isClearOfEntity, toBox } from './placement.js'
+import { canPlaceUnit, shipyardLayout, toBox } from './placement.js'
 
 // сколько колец клеток вокруг здания проверяем, прежде чем сдаться
 const MAX_RING = 10
@@ -27,12 +26,17 @@ const ringCells = (box, ring) => {
 // внутри кольца сначала клетки ближе к центру здания (середины сторон, а не углы)
 export const findSpawnPoint = (map, entities, building, unitType) => {
   const box = toBox(building.x, building.y, BUILDING_TYPES[building.type].size)
-  const r = UNIT_TYPES[unitType].size / 2
   const distance = (p) => Math.hypot(p.x - building.x, p.y - building.y)
+
+  if (building.type === 'shipyard') {
+    const dock = shipyardLayout(building).dock
+    const point = { x: (dock.minX + dock.maxX) / 2, y: (dock.minY + dock.maxY) / 2 }
+    if (canPlaceUnit(map, entities, UNIT_TYPES[unitType], point)) return point
+  }
 
   for (let ring = 1; ring <= MAX_RING; ring++) {
     const free = ringCells(box, ring)
-      .filter((p) => canStandOnTerrain(map, p, r, UNIT_TYPES[unitType].terrain) && entities.every((entity) => isClearOfEntity(p, r, entity)))
+      .filter((p) => canPlaceUnit(map, entities, UNIT_TYPES[unitType], p))
       .sort((a, b) => distance(a) - distance(b))
     if (free.length) {
       return free[0]

@@ -2,10 +2,10 @@
 // компоненты только читают геттеры и вызывают действия
 
 import { cameraMatrix, createCamera, panCamera, screenToWorld, worldToScreen, zoomCamera } from '@/game/camera'
-import { canStandOnTerrain, containsPoint, createSquareMap } from '@/game/map'
-import { BUILDING_TYPES, createBuilding, createStartEntities, createUnit, isBuilding, isUnit, stepToTarget, typeOf } from '@/game/entities'
+import { containsPoint, createSquareMap } from '@/game/map'
+import { BUILDING_TYPES, createBuilding, createStartEntities, createUnit, isBuilding, isUnit, stepToTarget, typeOf, UNIT_TYPES } from '@/game/entities'
 import { findPath } from '@/game/pathfinding'
-import { canPlaceBuilding, isSegmentClear, snapToGrid } from '@/game/placement'
+import { canPlaceBuilding, canUseUnitTerrain, isSegmentClear, shipyardDirection, snapToGrid } from '@/game/placement'
 import { assignSlots, formationSlots, insideRect, toggleId, toRect } from '@/game/selection'
 import { findSpawnPoint } from '@/game/spawn'
 
@@ -82,8 +82,8 @@ export default {
         unit.repathDelay = Math.max(0, unit.repathDelay - dt)
         const next = stepToTarget(unit, dt)
         const type = typeOf(unit)
-        const clear = state.entities.every((entity) => entity.id === unit.id || isSegmentClear(unit, next, type.size / 2, entity))
-        if (clear && canStandOnTerrain(state.map, next, type.size / 2, type.terrain)) {
+        const clear = state.entities.every((entity) => entity.id === unit.id || isSegmentClear(unit, next, type.size / 2, entity, type))
+        if (clear && canUseUnitTerrain(state.map, state.entities, type, next)) {
           Object.assign(unit, next)
         } else if (!clear && !unit.repathDelay) {
           unit.repathDelay = REPATH_DELAY
@@ -153,12 +153,14 @@ export default {
         return
       }
       // сухопутные и водные персонажи получают места только на своей местности
-      const terrains = [...new Set(units.map((unit) => typeOf(unit).terrain))]
-      terrains.forEach((terrain) => {
-        const group = units.filter((unit) => typeOf(unit).terrain === terrain)
+      const groupKey = (unit) => `${typeOf(unit).terrain}:${!!typeOf(unit).ship}`
+      const groups = [...new Set(units.map(groupKey))]
+      groups.forEach((key) => {
+        const group = units.filter((unit) => groupKey(unit) === key)
+        const { terrain, ship } = typeOf(group[0])
         const radius = Math.max(...group.map((unit) => typeOf(unit).size / 2))
         const groupIds = group.map((unit) => unit.id)
-        const slots = formationSlots(state.map, state.entities, target, group.length, radius, groupIds, terrain)
+        const slots = formationSlots(state.map, state.entities, target, group.length, radius, groupIds, terrain, ship)
         assignSlots(group, slots, target).forEach(({ unit, point }) => {
           if (point) routeUnit(commit, state, unit, point, groupIds)
           else commit(MUTATIONS.SET_PATH, { id: unit.id, path: [] })
@@ -198,7 +200,10 @@ export default {
       }
 
       const { type, x, y } = state.placement
-      commit(MUTATIONS.ADD_ENTITY, createBuilding(type, x, y))
+      const entity = UNIT_TYPES[type]?.ship
+        ? createUnit(type, x, y)
+        : createBuilding(type, x, y, type === 'shipyard' ? shipyardDirection(state.map, { x, y }) : undefined)
+      commit(MUTATIONS.ADD_ENTITY, entity)
 
       // новое здание могло встать поперек чьего-то пути - идущие ищут новый путь к той же точке
       const movingUnits = state.entities.filter((e) => isUnit(e) && e.target)
@@ -214,10 +219,12 @@ export default {
 
     // здание сразу создает count своих персонажей на ближайших свободных местах рядом с собой
     // по очереди: каждый следующий ищет место уже с учетом предыдущих; места кончились - создаем сколько поместилось
-    spawnUnits: ({ commit, state }, { id, count = 1 }) => {
+    spawnUnits: ({ commit, state }, { id, count = 1, type }) => {
       const building = state.entities.find((e) => e.id === id && isBuilding(e))
-      const unitType = building && BUILDING_TYPES[building.type].spawns
-      if (!unitType) {
+      const spawns = building && BUILDING_TYPES[building.type].spawns
+      const types = Array.isArray(spawns) ? spawns : spawns ? [spawns] : []
+      const unitType = type ?? types[0]
+      if (!types.includes(unitType)) {
         return
       }
 

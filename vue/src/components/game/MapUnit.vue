@@ -1,15 +1,14 @@
 <template>
-  <!-- персонаж - круг, на экране овал на земле -->
-  <circle
-    :cx="unit.x"
-    :cy="unit.y"
-    :r="type.size / 2"
-    :fill="type.color"
+  <!-- персонаж - круг, корабль - корпус, вписанный в круг столкновений -->
+  <g
     class="map-unit"
     :class="{ 'map-unit--selected': selected }"
     @mousedown.left.exact.stop="bus.emit(EVENTS.SELECT, unit.id)"
     @mousedown.left.shift.exact.stop="bus.emit(EVENTS.SELECT_TOGGLE, unit.id)"
-  />
+  >
+    <polygon v-if="type.ship" :points="shipPoints(unit.x, unit.y, type.size)" :fill="type.color" />
+    <circle v-else :cx="unit.x" :cy="unit.y" :r="type.size / 2" :fill="type.color" />
+  </g>
 
   <!-- куда идет выбранный: путь в обход зданий пунктиром и квадрат в конце -->
   <polyline v-if="selected && finish" :points="route" class="map-unit__route" />
@@ -27,7 +26,7 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
-import { UNIT_TYPES } from '@/game/entities'
+import { shipPoints, UNIT_TYPES } from '@/game/entities'
 
 const props = defineProps({
   unit: { type: Object, required: true },
@@ -45,6 +44,10 @@ const route = computed(() => [props.unit, props.unit.target, ...props.unit.path]
   stroke: rgba(0, 0, 0, 0.6);
   vector-effect: non-scaling-stroke;
   cursor: pointer;
+
+  & > circle, & > polygon {
+    vector-effect: non-scaling-stroke;
+  }
 
   &--selected {
     stroke: #fff;

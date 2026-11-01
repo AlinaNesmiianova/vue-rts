@@ -48,15 +48,19 @@ export const terrainAt = (map, p) =>
   containsPoint(map, p) ? map.terrain[`${Math.floor(p.x)},${Math.floor(p.y)}`] ?? TERRAIN_TYPES.LAND : null
 
 // проверяем все клетки под персонажем, чтобы он не заходил краем на чужую местность
-export const canStandOnTerrain = (map, p, radius, terrain) => {
+export const canStandOnTerrain = (map, p, radius, terrain, areas = []) => {
+  const matches = (point) => containsPoint(map, point) && (
+    terrainAt(map, point) === terrain ||
+    areas.some((box) => point.x >= box.minX && point.x < box.maxX && point.y >= box.minY && point.y < box.maxY)
+  )
   for (let x = Math.floor(p.x - radius); x <= Math.floor(p.x + radius); x++) {
     for (let y = Math.floor(p.y - radius); y <= Math.floor(p.y + radius); y++) {
       const nearestX = Math.min(x + 1, Math.max(x, p.x))
       const nearestY = Math.min(y + 1, Math.max(y, p.y))
-      if (Math.hypot(p.x - nearestX, p.y - nearestY) < radius && terrainAt(map, { x: x + 0.5, y: y + 0.5 }) !== terrain) {
+      if (Math.hypot(p.x - nearestX, p.y - nearestY) < radius && !matches({ x: x + 0.5, y: y + 0.5 })) {
         return false
       }
     }
   }
-  return terrainAt(map, p) === terrain
+  return matches(p)
 }

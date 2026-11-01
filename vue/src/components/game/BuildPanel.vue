@@ -15,6 +15,19 @@
       <span class="build-panel__size">{{ type.size }}×{{ type.size }}</span>
     </button>
 
+    <div class="build-panel__title">Корабли</div>
+    <button
+      v-for="(type, key) in ships"
+      :key="key"
+      type="button"
+      class="build-panel__item"
+      :class="{ 'build-panel__item--active': placement?.type === key }"
+      @click="bus.emit(EVENTS.BUILD_START, key)"
+    >
+      <span>{{ type.name }}</span>
+      <span class="build-panel__size">{{ type.size }}</span>
+    </button>
+
     <div class="build-panel__hint">
       <template v-if="placement">ЛКМ - поставить<br>Shift + ЛКМ - еще одно<br>ПКМ / Esc - отмена</template>
       <template v-else>Выберите здание</template>
@@ -26,10 +39,11 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
-import { BUILDING_TYPES } from '@/game/entities'
+import { BUILDING_TYPES, UNIT_TYPES } from '@/game/entities'
 
 const store = useStore()
 const placement = computed(() => store.getters['game/getPlacement'])
+const ships = Object.fromEntries(Object.entries(UNIT_TYPES).filter(([, type]) => type.ship))
 </script>
 
 <style scoped lang="scss">
