@@ -14,12 +14,12 @@
       <rect
         v-for="(part, index) in layout.parts" :key="index"
         :x="part.minX" :y="part.minY" :width="part.maxX - part.minX" :height="part.maxY - part.minY"
-        :fill="type.color"
+        :fill="colorOf(group, building)"
       />
     </template>
     <rect
       v-else :x="building.x - type.size / 2" :y="building.y - type.size / 2"
-      :width="type.size" :height="type.size" :fill="type.color"
+      :width="type.size" :height="type.size" :fill="colorOf(group, building)"
     />
   </g>
 </template>
@@ -29,6 +29,7 @@ import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
 import { BUILDING_TYPES } from '@/game/entities'
+import { colorOf } from '@/game/groups'
 import { shipyardLayout } from '@/game/placement'
 
 const props = defineProps({
@@ -37,6 +38,7 @@ const props = defineProps({
 
 const store = useStore()
 const type = computed(() => BUILDING_TYPES[props.building.type])
+const group = computed(() => store.getters['game/getGroup'](props.building.groupId))
 const selected = computed(() => store.getters['game/isSelected'](props.building.id))
 const layout = computed(() => props.building.type === 'shipyard' ? shipyardLayout(props.building) : null)
 </script>
@@ -59,7 +61,7 @@ const layout = computed(() => props.building.type === 'shipyard' ? shipyardLayou
 
   &--selected {
     stroke: #fff;
-    stroke-width: 2;
+    stroke-width: 4;
   }
 }
 </style>

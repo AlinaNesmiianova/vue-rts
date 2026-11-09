@@ -1,5 +1,5 @@
 // обход объектов: ищем путь по клеткам (A*), потом срезаем лишние повороты
-import { typeOf } from './entities.js'
+import { stepToTarget, typeOf } from './entities.js'
 import { canPlaceUnit, canUseUnitTerrain, isSegmentClear } from './placement.js'
 
 // 8 соседей клетки: 4 по сторонам и 4 по диагонали
@@ -13,6 +13,7 @@ const CHECK_STEP = 0.1
 
 // как далеко от цели ищем свободную клетку, если цель в здании
 const MAX_SEARCH_RING = 20
+const REPATH_DELAY = 0.5 // между попытками обойти движущееся препятствие, в секундах
 
 const keyOf = (i, j) => `${i},${j}`
 const cellOf = (grid, point) => ({ i: Math.round(point.x - grid.origin.x), j: Math.round(point.y - grid.origin.y) })
@@ -70,7 +71,7 @@ const nearestFreeCell = (grid, cell) => {
 
 // A*: всегда раскрываем клетку с наименьшим f = пройдено (g) + примерно осталось (h)
 // если до цели не дойти, возвращаем путь к самой близкой к ней клетке
-const searchCells = (grid, start, goal) => {
+const searchCells = (grid, start, goal, reached) => {
   const h = (c) => Math.hypot(c.i - goal.i, c.j - goal.j)
   const startNode = { ...start, g: 0, h: h(start), parent: null }
   const open = [startNode]
@@ -90,7 +91,8 @@ const searchCells = (grid, start, goal) => {
     if (node.h < closest.h) {
       closest = node
     }
-    if (node.i === goal.i && node.j === goal.j) {
+    if (reached ? reached(node.parent ? pointOf(grid, node) : grid.from) : node.i === goal.i && node.j === goal.j) {
+      closest = node
       break
     }
 
@@ -142,15 +144,56 @@ const smoothPath = (grid, points) => {
 
 // путь персонажа от from к to в обход объектов: список точек, по которым идти
 // цель в здании - идем к ближайшей свободной клетке, цель недостижима - подходим как можно ближе
-export const findPath = (map, entities, from, to, radius) => {
+export const findPath = (map, entities, from, to, radius, reached) => {
   const grid = createGrid(map, entities, radius, from, to)
   if (canWalkStraight(grid, from, to)) {
     return [to]
   }
 
   const target = cellOf(grid, to)
-  const cells = searchCells(grid, cellOf(grid, from), nearestFreeCell(grid, target))
+  const cells = searchCells(grid, cellOf(grid, from), reached ? target : nearestFreeCell(grid, target), reached)
   const points = cells.slice(1).map((cell) => pointOf(grid, cell))
 
   return smoothPath(grid, [from, ...points])
+}
+
+// маршрут текущего приказа: очередь приказов хранится отдельно от точек обхода
+export const routeUnit = (map, entities, unit, to, groupIds = [], reached) => {
+  const obstacles = entities.filter((entity) => !groupIds.includes(entity.id) || entity.id === unit.id)
+  const path = findPath(map, obstacles, unit, to, typeOf(unit).size / 2, reached)
+  unit.target = path[0] ?? null
+  unit.path = path.slice(1)
+  unit.routeGoal = { x: to.x, y: to.y }
+  unit.repathDelay = path.length ? 0 : REPATH_DELAY
+}
+
+// движение для обычного приказа и погони: местность и столкновения проверяются одинаково
+// возвращаем неиспользованное время, если дошли до конца маршрута
+export const advanceUnit = (map, entities, unit, dt) => {
+  unit.repathDelay = Math.max(0, unit.repathDelay - dt)
+  let remaining = dt
+  while (unit.target && remaining > 0) {
+    const distance = Math.hypot(unit.target.x - unit.x, unit.target.y - unit.y)
+    const next = stepToTarget(unit, remaining)
+    const type = typeOf(unit)
+    const clear = entities.every((entity) => entity.id === unit.id || entity.hp <= 0 || isSegmentClear(unit, next, type.size / 2, entity, type))
+    if (clear && canUseUnitTerrain(map, entities, type, next)) {
+      Object.assign(unit, next)
+      remaining = Math.max(0, remaining - distance / type.speed)
+    } else {
+      if (!unit.repathDelay) {
+        unit.repathDelay = REPATH_DELAY
+        const finish = unit.path[unit.path.length - 1] ?? unit.target
+        const path = findPath(map, entities.filter((entity) => entity.hp > 0), unit, finish, type.size / 2)
+        const last = path[path.length - 1]
+        // неполный обход не заменяет цель: в плотной группе ждем, пока соседи пройдут
+        if (last && Math.hypot(last.x - finish.x, last.y - finish.y) < 1e-9) {
+          unit.target = path[0]
+          unit.path = path.slice(1)
+        }
+      }
+      return 0
+    }
+  }
+  return remaining
 }

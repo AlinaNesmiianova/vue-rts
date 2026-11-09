@@ -1,6 +1,9 @@
 <template>
   <div class="build-panel">
     <div class="build-panel__title">Стройка</div>
+    <select :value="buildGroupId" aria-label="Группа для строительства" @change="store.dispatch('game/setBuildGroup', $event.target.value)">
+      <option v-for="group in groups" :key="group.id" :value="group.id">{{ group.name }}</option>
+    </select>
 
     <!-- кнопка на каждый тип здания; повторное нажатие отменяет стройку -->
     <button
@@ -9,6 +12,7 @@
       type="button"
       class="build-panel__item"
       :class="{ 'build-panel__item--active': placement?.type === key }"
+      :disabled="finished"
       @click="bus.emit(EVENTS.BUILD_START, key)"
     >
       <span>{{ type.name }}</span>
@@ -22,6 +26,7 @@
       type="button"
       class="build-panel__item"
       :class="{ 'build-panel__item--active': placement?.type === key }"
+      :disabled="finished"
       @click="bus.emit(EVENTS.BUILD_START, key)"
     >
       <span>{{ type.name }}</span>
@@ -42,6 +47,9 @@ import { bus, EVENTS } from '@/game/bus'
 import { BUILDING_TYPES, UNIT_TYPES } from '@/game/entities'
 
 const store = useStore()
+const groups = computed(() => store.state.game.groups)
+const buildGroupId = computed(() => store.state.game.buildGroupId)
+const finished = computed(() => store.state.game.phase === 'finished')
 const placement = computed(() => store.getters['game/getPlacement'])
 const ships = Object.fromEntries(Object.entries(UNIT_TYPES).filter(([, type]) => type.ship))
 </script>
