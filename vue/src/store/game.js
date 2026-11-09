@@ -1,6 +1,7 @@
-// состояние игры: карта, объекты, выбор персонажа-юнита, камера
-// компоненты только читают геттеры и вызывают действия
+// Все элементы карты, очередь событий и состояние партии хранятся во Vuex.
+// Компоненты отображают готовое состояние, а TICK применяет события кадра.
 
+<<<<<<< HEAD
 import { cameraMatrix, createCamera, panCamera, screenToWorld, worldToScreen, zoomCamera } from '@/game/camera'
 import { containsPoint, createSquareMap } from '@/game/map'
 import { BUILDING_TYPES, createBuilding, createStartEntities, createUnit, isBuilding, isUnit, stepToTarget, typeOf, UNIT_TYPES } from '@/game/entities'
@@ -11,32 +12,65 @@ import { findSpawnPoint } from '@/game/spawn'
 
 const MAP_SIZE = 120 // карта 120 на 120
 const REPATH_DELAY = 0.5 // между попытками обойти движущееся препятствие, в секундах
+=======
+import { cameraMatrix, createCamera, panCamera, screenToWorld, worldToScreen, zoomCamera } from '../game/camera.js'
+import { containsPoint, createSquareMap } from '../game/map.js'
+import { canAttack, isBuilding, isUnit } from '../game/entities.js'
+import { addOrders, ORDER_TYPES } from '../game/events.js'
+import { advanceFrame } from '../game/frame.js'
+import { createScenario } from '../game/scenarios.js'
+import { getGameResult, remainingGroups } from '../game/result.js'
+>>>>>>> temp/three-commits
 
+const MAP_SIZE = 120
 const byDepth = (a, b) => a.x + a.y - (b.x + b.y)
 
+<<<<<<< HEAD
 // путь персонажа до точки в обход объектов
 const routeUnit = (commit, state, unit, to, groupIds = []) => {
   const obstacles = state.entities.filter((entity) => !groupIds.includes(entity.id) || entity.id === unit.id)
   const path = findPath(state.map, obstacles, unit, to, typeOf(unit).size / 2)
   commit(MUTATIONS.SET_PATH, { id: unit.id, path })
 }
+=======
+export const PHASES = { READY: 'ready', RUNNING: 'running', PAUSED: 'paused', FINISHED: 'finished' }
+>>>>>>> temp/three-commits
 
 export const MUTATIONS = {
   SET_VIEWPORT: 'SET_VIEWPORT',
   SET_CAMERA: 'SET_CAMERA',
   SET_SELECTED: 'SET_SELECTED',
+<<<<<<< HEAD
   SET_PATH: 'SET_PATH',
+=======
+  ADD_ORDERS: 'ADD_ORDERS',
+  REMOVE_ENTITY: 'REMOVE_ENTITY',
+  LOAD_SCENARIO: 'LOAD_SCENARIO',
+  SET_PHASE: 'SET_PHASE',
+>>>>>>> temp/three-commits
   TICK: 'TICK',
   ADD_ENTITY: 'ADD_ENTITY',
   SET_PLACEMENT: 'SET_PLACEMENT',
+}
+
+// Если была уничтожена последняя сущность предпоследней группы, игра окончена.
+const finishIfNeeded = (state) => {
+  const result = getGameResult(state.entities)
+  if (!result.finished) return
+  state.phase = PHASES.FINISHED
+  state.winnerGroupId = result.winnerGroupId
+  state.events = []
 }
 
 export default {
   namespaced: true,
   state: () => ({
     map: createSquareMap(MAP_SIZE),
-    entities: createStartEntities(),
-    selectedIds: [], // массив, чтобы потом добавить выделение нескольких
+    ...createScenario(), // группы, все объекты карты и подготовленные очереди
+    phase: PHASES.READY,
+    winnerGroupId: null,
+    elapsedSeconds: 0,
+    selectedIds: [],
     camera: createCamera(),
     viewport: { width: 0, height: 0 },
     placement: null, // стройка: { type, x, y }, пока игрок выбирает место; x, y = null - курсор еще не на поле
@@ -45,8 +79,11 @@ export default {
     getMap: (state) => state.map,
     getUnits: (state) => state.entities.filter(isUnit).sort(byDepth),
     getBuildings: (state) => state.entities.filter(isBuilding).sort(byDepth),
-    getSelected: (state) => state.entities.filter((e) => state.selectedIds.includes(e.id)),
+    getSelected: (state) => state.entities.filter((entity) => state.selectedIds.includes(entity.id)),
     isSelected: (state) => (id) => state.selectedIds.includes(id),
+    getUnitEvents: (state) => (id) => state.events.filter((event) => event.unitId === id),
+    getGroup: (state) => (id) => state.groups.find((group) => group.id === id),
+    getRemainingGroups: (state) => remainingGroups(state.entities),
     getCameraMatrix: (state) => cameraMatrix(state.camera, state.viewport),
     toScreen: (state) => (point) => worldToScreen(state.camera, state.viewport, point),
     getPlacement: (state) => state.placement,
@@ -68,6 +105,7 @@ export default {
     [MUTATIONS.SET_SELECTED]: (state, ids) => {
       state.selectedIds = ids
     },
+<<<<<<< HEAD
     // первая точка пути - текущая цель, остальные ждут очереди
     [MUTATIONS.SET_PATH]: (state, { id, path }) => {
       const unit = state.entities.find((e) => e.id === id)
@@ -104,27 +142,57 @@ export default {
     },
     [MUTATIONS.SET_PLACEMENT]: (state, placement) => {
       state.placement = placement
+=======
+    [MUTATIONS.ADD_ORDERS]: (state, { unitIds, order, append }) => {
+      const next = addOrders(state.events, state.nextEventId, unitIds, order, append)
+      state.events = next.events
+      state.nextEventId = next.nextEventId
+    },
+    [MUTATIONS.REMOVE_ENTITY]: (state, id) => {
+      state.entities = state.entities.filter((entity) => entity.id !== id)
+      state.selectedIds = state.selectedIds.filter((selectedId) => selectedId !== id)
+      state.events = state.events.filter((event) => event.unitId !== id)
+      finishIfNeeded(state)
+    },
+    [MUTATIONS.LOAD_SCENARIO]: (state, scenarioId) => {
+      Object.assign(state, createScenario(scenarioId), {
+        phase: PHASES.READY,
+        winnerGroupId: null,
+        elapsedSeconds: 0,
+        selectedIds: [],
+        camera: createCamera(),
+      })
+    },
+    [MUTATIONS.SET_PHASE]: (state, phase) => {
+      state.phase = phase
+    },
+    [MUTATIONS.TICK]: (state, dt) => {
+      if (state.phase !== PHASES.RUNNING || !Number.isFinite(dt) || dt <= 0) return
+      const next = advanceFrame(state.entities, state.events, dt)
+      state.entities = next.entities
+      state.events = next.events
+      state.elapsedSeconds += dt
+      const aliveIds = new Set(state.entities.map((entity) => entity.id))
+      state.selectedIds = state.selectedIds.filter((id) => aliveIds.has(id))
+      finishIfNeeded(state)
+>>>>>>> temp/three-commits
     },
   },
   actions: {
     setViewport: ({ commit }, viewport) => {
       commit(MUTATIONS.SET_VIEWPORT, viewport)
     },
-
     panCamera: ({ commit, state }, delta) => {
-      const camera = panCamera(state.camera, state.viewport, delta, state.map.bounds)
-      commit(MUTATIONS.SET_CAMERA, camera)
+      commit(MUTATIONS.SET_CAMERA, panCamera(state.camera, state.viewport, delta, state.map.bounds))
     },
-
     zoomCamera: ({ commit, state }, zoom) => {
-      const camera = zoomCamera(state.camera, state.viewport, zoom, state.map.bounds)
-      commit(MUTATIONS.SET_CAMERA, camera)
+      commit(MUTATIONS.SET_CAMERA, zoomCamera(state.camera, state.viewport, zoom, state.map.bounds))
     },
-
-    select: ({ commit }, id) => {
-      const ids = id === null ? [] : [id]
-      commit(MUTATIONS.SET_SELECTED, ids)
+    select: ({ commit, state }, id) => {
+      const exists = state.entities.some((entity) => entity.id === id)
+      commit(MUTATIONS.SET_SELECTED, id !== null && exists ? [id] : [])
     },
+<<<<<<< HEAD
 
     // shift + клик: добавить объект к выбору или убрать из него
     toggleSelected: ({ commit, state }, id) => {
@@ -166,8 +234,40 @@ export default {
           else commit(MUTATIONS.SET_PATH, { id: unit.id, path: [] })
         })
       })
+=======
+    moveSelected: ({ commit, state, getters }, { point, append = false }) => {
+      if (state.phase === PHASES.FINISHED) return
+      const target = screenToWorld(state.camera, state.viewport, point)
+      if (!containsPoint(state.map, target)) return
+      const unitIds = getters.getSelected.filter(isUnit).map((unit) => unit.id)
+      if (unitIds.length) commit(MUTATIONS.ADD_ORDERS, { unitIds, order: { type: ORDER_TYPES.MOVE, target }, append })
     },
-
+    attackSelected: ({ commit, state, getters }, { targetId, append = false }) => {
+      if (state.phase === PHASES.FINISHED) return
+      const enemy = state.entities.find((entity) => entity.id === targetId)
+      // Единственная проверка враждебности — разные идентификаторы групп.
+      const unitIds = getters.getSelected.filter((unit) => canAttack(unit, enemy)).map((unit) => unit.id)
+      if (unitIds.length) commit(MUTATIONS.ADD_ORDERS, { unitIds, order: { type: ORDER_TYPES.ATTACK, targetId }, append })
+    },
+    selfDestruct: ({ commit, state }, id) => {
+      if (state.phase === PHASES.FINISHED) return
+      const entity = state.entities.find((item) => item.id === id)
+      if (entity && isUnit(entity)) commit(MUTATIONS.REMOVE_ENTITY, id)
+    },
+    loadScenario: ({ commit }, scenarioId) => {
+      commit(MUTATIONS.LOAD_SCENARIO, scenarioId)
+    },
+    start: ({ commit, state }) => {
+      if ([PHASES.READY, PHASES.PAUSED].includes(state.phase)) commit(MUTATIONS.SET_PHASE, PHASES.RUNNING)
+    },
+    pause: ({ commit, state }) => {
+      if (state.phase === PHASES.RUNNING) commit(MUTATIONS.SET_PHASE, PHASES.PAUSED)
+    },
+    togglePause: ({ dispatch, state }) => {
+      if (state.phase === PHASES.RUNNING) dispatch('pause')
+      else dispatch('start')
+>>>>>>> temp/three-commits
+    },
     tick: ({ commit }, dt) => {
       commit(MUTATIONS.TICK, dt)
     },

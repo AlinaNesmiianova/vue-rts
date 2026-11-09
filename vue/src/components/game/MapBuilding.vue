@@ -1,5 +1,16 @@
 <template>
+<<<<<<< HEAD
   <g
+=======
+  <!-- здание - квадрат size x size клеток с центром в (x, y), на экране ромб -->
+  <rect
+    :x="building.x - type.size / 2"
+    :y="building.y - type.size / 2"
+    :width="type.size"
+    :height="type.size"
+    :fill="colorOf(group, building)"
+    :stroke="group?.color"
+>>>>>>> temp/three-commits
     class="map-building"
     :class="{ 'map-building--selected': selected }"
     @mousedown.left.exact.stop="bus.emit(EVENTS.SELECT, building.id)"
@@ -29,7 +40,11 @@ import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
 import { BUILDING_TYPES } from '@/game/entities'
+<<<<<<< HEAD
 import { shipyardLayout } from '@/game/placement'
+=======
+import { colorOf } from '@/game/groups'
+>>>>>>> temp/three-commits
 
 const props = defineProps({
   building: { type: Object, required: true },
@@ -37,13 +52,15 @@ const props = defineProps({
 
 const store = useStore()
 const type = computed(() => BUILDING_TYPES[props.building.type])
+const group = computed(() => store.getters['game/getGroup'](props.building.groupId))
 const selected = computed(() => store.getters['game/isSelected'](props.building.id))
 const layout = computed(() => props.building.type === 'shipyard' ? shipyardLayout(props.building) : null)
 </script>
 
 <style scoped lang="scss">
 .map-building {
-  stroke: rgba(0, 0, 0, 0.6);
+  stroke: #3d8ecc;
+  stroke-width: 3;
   vector-effect: non-scaling-stroke;
   cursor: pointer;
 
@@ -59,7 +76,8 @@ const layout = computed(() => props.building.type === 'shipyard' ? shipyardLayou
 
   &--selected {
     stroke: #fff;
-    stroke-width: 2;
+    stroke-width: 4;
   }
+
 }
 </style>
