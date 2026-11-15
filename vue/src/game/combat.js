@@ -53,7 +53,8 @@ export const advanceBattle = (entities, dt, map) => {
           // для атаки достаточно любой свободной точки в радиусе удара
           routeUnit(map, entities.filter((entity) => entity.hp > 0), unit, enemy, [],
             (point) => distanceToTarget(point, enemy) <= contactDistance + 1e-6)
-          unit.repathDelay = 0.5
+          // у каждого своя добавка к паузе, чтобы бойцы не считали путь все в один кадр
+          unit.repathDelay = 0.5 + (unit.id % 7) * 0.03
         }
         advanceUnit(map, entities, unit, Math.min(dt, (distance - contactDistance) / stats.speed))
       } else if (length > 0 && step > 0) {

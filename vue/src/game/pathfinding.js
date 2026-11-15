@@ -8,12 +8,14 @@ const NEIGHBORS = [
   [1, 1], [1, -1], [-1, 1], [-1, -1],
 ]
 
-// с таким шагом проверяем отрезок, меньше толщины любого здания
-const CHECK_STEP = 0.1
+// с таким шагом проверяем местность на отрезке: здания проверяются отдельно и точно,
+// а под персонажем (он не меньше 0.8 клетки) и так проверяются все клетки круга
+const CHECK_STEP = 0.25
 
 // как далеко от цели ищем свободную клетку, если цель в здании
 const MAX_SEARCH_RING = 20
 const REPATH_DELAY = 0.5 // между попытками обойти движущееся препятствие, в секундах
+const MAX_NODES = 6000 // больше клеток за один поиск не раскрываем, идем к самой близкой найденной
 
 const keyOf = (i, j) => `${i},${j}`
 const cellOf = (grid, point) => ({ i: Math.round(point.x - grid.origin.x), j: Math.round(point.y - grid.origin.y) })
@@ -21,12 +23,50 @@ const cellOf = (grid, point) => ({ i: Math.round(point.x - grid.origin.x), j: Ma
 const pointOf = (grid, cell) => ({ x: grid.origin.x + cell.i, y: grid.origin.y + cell.j })
 
 // все, что нужно поиску: местность, размер персонажа и остальные объекты
+// free - запомненные ответы "свободна ли клетка": за один поиск объекты не двигаются, считаем каждую клетку один раз
 const createGrid = (map, entities, radius, from, origin) => ({
   map, radius, from, origin, unitType: typeOf(from),
   obstacles: entities.filter((entity) => entity.id !== from.id),
+  free: new Map(),
 })
 
-const isFreeCell = (grid, cell) => isFreePoint(grid, pointOf(grid, cell))
+const isFreeCell = (grid, cell) => {
+  const key = keyOf(cell.i, cell.j)
+  if (!grid.free.has(key)) grid.free.set(key, isFreePoint(grid, pointOf(grid, cell)))
+  return grid.free.get(key)
+}
+
+// очередь с приоритетом (двоичная куча): клетку с наименьшим f достаем сразу, а не перебором всего списка
+const fOf = (node) => node.g + node.h
+const heapPush = (heap, node) => {
+  heap.push(node)
+  let k = heap.length - 1
+  while (k > 0) {
+    const parent = (k - 1) >> 1
+    if (fOf(heap[parent]) <= fOf(heap[k])) break
+    ;[heap[parent], heap[k]] = [heap[k], heap[parent]]
+    k = parent
+  }
+}
+const heapPop = (heap) => {
+  const top = heap[0]
+  const last = heap.pop()
+  if (heap.length) {
+    heap[0] = last
+    let k = 0
+    for (;;) {
+      const left = k * 2 + 1
+      const right = left + 1
+      let min = k
+      if (left < heap.length && fOf(heap[left]) < fOf(heap[min])) min = left
+      if (right < heap.length && fOf(heap[right]) < fOf(heap[min])) min = right
+      if (min === k) break
+      ;[heap[min], heap[k]] = [heap[k], heap[min]]
+      k = min
+    }
+  }
+  return top
+}
 
 const isFreePoint = (grid, p) => canPlaceUnit(grid.map, grid.obstacles, grid.unitType, p)
 
@@ -76,17 +116,18 @@ const searchCells = (grid, start, goal, reached) => {
   const startNode = { ...start, g: 0, h: h(start), parent: null }
   const open = [startNode]
   const closed = new Set()
+  let expanded = 0
   const bestG = new Map() // лучший найденный g для клетки, чтобы не класть в очередь худшие пути
   let closest = startNode
 
-  while (open.length) {
-    const index = open.reduce((best, n, k) => (n.g + n.h < open[best].g + open[best].h ? k : best), 0)
-    const node = open.splice(index, 1)[0]
+  while (open.length && expanded < MAX_NODES) {
+    const node = heapPop(open)
     const key = keyOf(node.i, node.j)
     if (closed.has(key)) {
       continue
     }
     closed.add(key)
+    expanded++
 
     if (node.h < closest.h) {
       closest = node
@@ -105,7 +146,9 @@ const searchCells = (grid, start, goal, reached) => {
       if (di && dj && (!isFreeCell(grid, { i: node.i + di, j: node.j }) || !isFreeCell(grid, { i: node.i, j: node.j + dj }))) {
         return
       }
-      if (!canWalkStraight(grid, node.parent ? pointOf(grid, node) : grid.from, pointOf(grid, next))) {
+      // между соседними свободными клетками пройти можно всегда; проверяем только первый шаг
+      // от настоящего места персонажа, которое может быть не в центре клетки
+      if (!node.parent && !canWalkStraight(grid, grid.from, pointOf(grid, next))) {
         return
       }
       const g = node.g + Math.hypot(di, dj)
@@ -113,7 +156,7 @@ const searchCells = (grid, start, goal, reached) => {
         return
       }
       bestG.set(keyOf(next.i, next.j), g)
-      open.push({ ...next, g, h: h(next), parent: node })
+      heapPush(open, { ...next, g, h: h(next), parent: node })
     })
   }
 
