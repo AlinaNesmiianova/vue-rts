@@ -1,44 +1,69 @@
 <template>
   <div class="selection-panel">
-    <template v-if="selected.length > 1">
+    <template v-if="multiple">
       <strong>Выбрано: {{ selected.length }}</strong>
-      <span> — {{ groups }}</span>
+      <span> — {{ selectedSummary }}</span>
     </template>
+
     <template v-else-if="entity">
       <div class="selection-panel__heading">
         <strong>{{ type.name }}</strong>
-        <span class="selection-panel__group" :style="{ borderColor: group?.color, color: group?.color }">
-          {{ group?.name }}
-        </span>
+        <span class="selection-panel__group" :style="groupStyle">{{ group?.name }}</span>
       </div>
       <div class="selection-panel__details">
         <span>Здоровье: <strong>{{ entity.hp }} / {{ type.maxHp }}</strong></span>
-        <template v-if="isUnit(entity)">
+        <template v-if="entityIsUnit">
           <span>Сила: <strong>{{ type.attack }}</strong></span>
           <span>Ходьба: <strong>{{ type.speed }} кл/с</strong></span>
           <span>Атака: <strong>{{ type.attackSpeed }} уд/с</strong></span>
         </template>
-        <span>Клетка: <strong>{{ Math.floor(entity.x) }}, {{ Math.floor(entity.y) }}</strong></span>
+        <span>Клетка: <strong>{{ cell }}</strong></span>
       </div>
-      <div v-for="spawnType in spawnTypes" :key="spawnType" class="selection-panel__actions">
-        <span>Создать: {{ UNIT_TYPES[spawnType].name }}</span>
-        <button
-          v-for="count in SPAWN_COUNTS" :key="count" type="button" class="selection-panel__spawn"
-          :disabled="phase === 'finished'"
-          @click="bus.emit(EVENTS.SPAWN, { id: entity.id, count, type: spawnType })"
-        >×{{ count }}</button>
+
+      <!-- недостроенное здание показывает прогресс вместо найма -->
+      <div v-if="constructing" class="selection-panel__actions">
+        <span>Строится: {{ buildPercent }}%</span>
+        <div class="selection-panel__progress">
+          <div class="selection-panel__progress-fill" :style="progressStyle"></div>
+        </div>
       </div>
-      <div v-if="isUnit(entity)" class="selection-panel__actions">
-        <span>
-          {{ orders.length ? (orders[0].type === 'attack' ? 'Атакует противника' : 'Перемещается') : 'Ожидает приказа' }} · Команд: {{ orders.length }}
-        </span>
-        <button v-if="phase !== 'finished'" type="button" class="selection-panel__destroy" @click="bus.emit(EVENTS.SELF_DESTRUCT, entity.id)">
+      <template v-else>
+        <div v-for="spawn in spawnOptions" :key="spawn.type" class="selection-panel__actions">
+          <span>Создать: {{ spawn.name }}</span>
+          <button
+            v-for="count in SPAWN_COUNTS"
+            :key="count"
+            type="button"
+            class="selection-panel__spawn"
+            :disabled="finished"
+            @click="onSpawn(spawn.type, count)"
+          >×{{ count }}</button>
+        </div>
+      </template>
+
+      <div v-if="entityIsUnit" class="selection-panel__actions">
+        <span>{{ orderStatus }} · Команд: {{ orders.length }}</span>
+        <button v-if="!finished" type="button" class="selection-panel__destroy" @click="onSelfDestruct">
           Самоуничтожение
         </button>
       </div>
     </template>
-    <template v-else>
-      <strong>Управление:</strong> ЛКМ — выбрать · Рамка / Shift + ЛКМ — несколько · ПКМ — идти / атаковать другую группу · Shift + ПКМ — в очередь · Пробел — пауза · WASD — камера · Ctrl + колесо — масштаб
+
+    <!-- выбраны бойцы: на какой клан их отправить, кнопка цвета клана -->
+    <div v-if="attackOptions.length" class="selection-panel__actions">
+      <span>Атаковать клан:</span>
+      <button
+        v-for="option in attackOptions"
+        :key="option.id"
+        type="button"
+        class="selection-panel__clan"
+        :style="option.style"
+        @click="onAttackGroup(option.id)"
+      >{{ option.name }}</button>
+    </div>
+
+    <template v-if="!selected.length">
+      <span class="selection-panel__hint">ЛКМ — выбрать · рамка — несколько · ПКМ — идти / атаковать · Shift + ПКМ — в очередь · WASD — камера</span>
     </template>
   </div>
 </template>
@@ -47,74 +72,150 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
-import { isUnit, typeOf, UNIT_TYPES } from '@/game/entities'
+import { isBuilt, isUnit, typeOf, UNIT_TYPES } from '@/game/entities'
+import { PHASES } from '@/store/game'
+
+const SPAWN_COUNTS = [1, 5, 10]
 
 const store = useStore()
-const SPAWN_COUNTS = [1, 5, 10]
 const selected = computed(() => store.getters['game/getSelected'])
+const multiple = computed(() => selected.value.length > 1)
 const entity = computed(() => selected.value[0] ?? null)
-const groups = computed(() => {
+const entityIsUnit = computed(() => !!entity.value && isUnit(entity.value))
+const type = computed(() => entity.value && typeOf(entity.value))
+const group = computed(() => entity.value && store.getters['game/getGroup'](entity.value.groupId))
+const groupStyle = computed(() => ({ borderColor: group.value?.color, color: group.value?.color }))
+const orders = computed(() => (entity.value ? store.getters['game/getUnitEvents'](entity.value.id) : []))
+const finished = computed(() => store.state.game.phase === PHASES.FINISHED)
+const cell = computed(() => `${Math.floor(entity.value.x)}, ${Math.floor(entity.value.y)}`)
+
+// несколько выбранных: сколько каких типов
+const selectedSummary = computed(() => {
   const counts = {}
-  selected.value.forEach((entity) => {
-    const name = typeOf(entity).name
+  selected.value.forEach((item) => {
+    const name = typeOf(item).name
     counts[name] = (counts[name] ?? 0) + 1
   })
   return Object.entries(counts).map(([name, count]) => `${name} ×${count}`).join(', ')
 })
-const type = computed(() => entity.value && typeOf(entity.value))
-const spawnTypes = computed(() => {
+
+const spawnOptions = computed(() => {
   const spawns = type.value?.spawns
-  return Array.isArray(spawns) ? spawns : spawns ? [spawns] : []
+  const types = Array.isArray(spawns) ? spawns : spawns ? [spawns] : []
+  return types.map((spawnType) => ({ type: spawnType, name: UNIT_TYPES[spawnType].name }))
 })
-const group = computed(() => entity.value && store.getters['game/getGroup'](entity.value.groupId))
-const orders = computed(() => entity.value ? store.getters['game/getUnitEvents'](entity.value.id) : [])
-const phase = computed(() => store.state.game.phase)
+
+// выбрано недостроенное здание
+const constructing = computed(() => !!entity.value && !entityIsUnit.value && !isBuilt(entity.value))
+const buildPercent = computed(() => (constructing.value ? Math.floor(entity.value.progress * 100) : 0))
+const progressStyle = computed(() => ({ width: `${buildPercent.value}%` }))
+
+const orderStatus = computed(() => {
+  if (!orders.value.length) return 'Ожидает приказа'
+  return orders.value[0].type === 'attack' ? 'Атакует противника' : 'Перемещается'
+})
+
+// кланы, которые можно атаковать: живые и не единственный клан всех выбранных бойцов
+const attackOptions = computed(() => {
+  const units = selected.value.filter(isUnit)
+  if (!units.length || finished.value) return []
+  const ownGroups = new Set(units.map((unit) => unit.groupId))
+  const aliveGroups = new Set(store.state.game.entities.map((item) => item.groupId))
+  return store.state.game.groups
+    .filter((clan) => aliveGroups.has(clan.id) && !(ownGroups.size === 1 && ownGroups.has(clan.id)))
+    .map((clan) => ({ id: clan.id, name: clan.name, style: { borderColor: clan.color, color: clan.color } }))
+})
+
+const onAttackGroup = (groupId) => bus.emit(EVENTS.ATTACK_GROUP, groupId)
+const onSpawn = (spawnType, count) => bus.emit(EVENTS.SPAWN, { id: entity.value.id, count, type: spawnType })
+const onSelfDestruct = () => bus.emit(EVENTS.SELF_DESTRUCT, entity.value.id)
 </script>
 
 <style scoped lang="scss">
-.selection-panel {
-  padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.17);
-  border-radius: 9px;
-  background: rgba(17, 22, 27, 0.92);
-  color: #e6e6e6;
-  font-size: 13px;
-  text-align: center;
-  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.32);
+@use '@/assets/game-ui' as ui;
 
-  &__heading, &__details, &__actions {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px 16px;
+.selection-panel {
+  @include ui.panel;
+  padding: 6px 10px;
+  text-align: center;
+
+  strong {
+    color: #fff;
   }
 
-  &__heading { font-size: 15px; margin-bottom: 7px; }
-  &__details strong { color: #fff; }
-  &__actions { margin-top: 10px; }
-  &__actions span { color: #b6c2cd; }
-  &__group { padding: 1px 7px; border: 1px solid; border-radius: 4px; font-size: 12px; }
+  &__heading,
+  &__details,
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 4px 10px;
+  }
+
+  &__heading {
+    margin-bottom: 4px;
+    font-size: 13px;
+
+    strong {
+      @include ui.title;
+      font-size: 13px;
+    }
+  }
+
+  &__actions {
+    margin-top: 10px;
+
+    span {
+      color: ui.$muted;
+    }
+  }
+
+  &__group {
+    padding: 1px 7px;
+    border: 1px solid;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  &__progress {
+    width: 120px;
+    height: 8px;
+    border: 1px solid ui.$border;
+    border-radius: 4px;
+    background: #0b0f12;
+    overflow: hidden;
+  }
+
+  &__progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #5fa89a, ui.$accent);
+  }
+
   &__spawn {
+    @include ui.button;
     padding: 3px 8px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 5px;
-    color: inherit;
-    background: #222a31;
-    font: inherit;
-    cursor: pointer;
+  }
+
+  &__hint {
+    color: ui.$muted;
+    font-size: 11px;
+  }
+
+  &__clan {
+    @include ui.button;
+    padding: 3px 8px;
+    font-size: 12px;
   }
 
   &__destroy {
-    padding: 6px 10px;
-    border: 1px solid #d96161;
-    border-radius: 5px;
-    color: #ffe2e2;
-    background: #693232;
-    font: inherit;
-    cursor: pointer;
-  }
+    @include ui.button;
+    border-color: ui.$danger;
+    background: linear-gradient(180deg, #7a3330 0%, #55211f 100%);
 
-  &__destroy:hover { background: #8c3333; }
+    &:hover:not(:disabled) {
+      background: linear-gradient(180deg, #934039 0%, #672826 100%);
+    }
+  }
 }
 </style>

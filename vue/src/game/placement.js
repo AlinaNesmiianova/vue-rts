@@ -181,3 +181,17 @@ export const canPlaceBuilding = (map, entities, type, point) => {
 
   return entities.every((entity) => !overlaps(box, entity))
 }
+
+// ближайшее к точке near место, где помещается здание: обходим квадратные кольца вокруг нее
+export const findBuildingSpot = (map, entities, type, near, maxRadius = 40) => {
+  for (let r = 0; r <= maxRadius; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue // только клетки на кольце
+        const point = snapToGrid(type, { x: near.x + dx, y: near.y + dy })
+        if (canPlaceBuilding(map, entities, type, point)) return point
+      }
+    }
+  }
+  return null
+}

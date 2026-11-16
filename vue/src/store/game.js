@@ -6,7 +6,8 @@ import { containsPoint, createSquareMap } from '../game/map.js'
 import { BUILDING_TYPES, canAttack, createBuilding, createUnit, isBuilding, isBuilt, isUnit, typeOf, UNIT_TYPES } from '../game/entities.js'
 import { addOrders, ORDER_TYPES } from '../game/events.js'
 import { advanceFrame } from '../game/frame.js'
-import { createScenario } from '../game/scenarios.js'
+import { createGroup } from '../game/groups.js'
+import { createBase, createBattle, DEFAULT_GROUP_COUNT, planAttacks } from '../game/scenarios.js'
 import { getGameResult, remainingGroups } from '../game/result.js'
 import { canPlaceBuilding, shipyardDirection, snapToGrid } from '../game/placement.js'
 import { assignSlots, formationSlots, insideRect, toggleId, toRect } from '../game/selection.js'
@@ -14,6 +15,25 @@ import { findSpawnPoint } from '../game/spawn.js'
 
 const MAP_SIZE = 120
 const byDepth = (a, b) => a.x + a.y - (b.x + b.y)
+
+// персонаж за зданием, если стоит за его дальней стороной (и не вышел за ближнюю)
+const isBehind = (unit, building) => {
+  const half = typeOf(building).size / 2
+  if (unit.x > building.x + half || unit.y > building.y + half) return false
+  return unit.x < building.x - half || unit.y < building.y - half
+}
+
+// глубина для порядка рисования: у зданий и далеких персонажей x + y,
+// персонажа рядом со зданием ставим строго перед ним или за ним
+const drawDepth = (entity, buildings) => {
+  if (isBuilding(entity)) return entity.x + entity.y
+  return buildings.reduce((depth, building) => {
+    const reach = typeOf(building).size / 2 + 1
+    if (Math.abs(entity.x - building.x) > reach || Math.abs(entity.y - building.y) > reach) return depth
+    const center = building.x + building.y
+    return isBehind(entity, building) ? Math.min(depth, center - 0.01) : Math.max(depth, center + 0.01)
+  }, entity.x + entity.y)
+}
 
 export const PHASES = { READY: 'ready', RUNNING: 'running', PAUSED: 'paused', FINISHED: 'finished' }
 
@@ -23,12 +43,14 @@ export const MUTATIONS = {
   SET_SELECTED: 'SET_SELECTED',
   ADD_ORDERS: 'ADD_ORDERS',
   REMOVE_ENTITY: 'REMOVE_ENTITY',
-  LOAD_SCENARIO: 'LOAD_SCENARIO',
+  NEW_GAME: 'NEW_GAME',
+  SET_ORDERS: 'SET_ORDERS',
   SET_PHASE: 'SET_PHASE',
   TICK: 'TICK',
   ADD_ENTITY: 'ADD_ENTITY',
   SET_PLACEMENT: 'SET_PLACEMENT',
   SET_BUILD_GROUP: 'SET_BUILD_GROUP',
+  ADD_GROUP: 'ADD_GROUP',
 }
 
 // Если была уничтожена последняя сущность предпоследней группы, игра окончена.
@@ -41,11 +63,24 @@ const finishIfNeeded = (state) => {
   state.placement = null
 }
 
+// новый приказ без очереди: персонаж бросает текущую цель и путь
+const resetUnits = (state, unitIds) => {
+  state.entities.filter((entity) => unitIds.includes(entity.id)).forEach((unit) => {
+    unit.activeEventId = null
+    unit.target = null
+    unit.path = []
+    unit.attackTargetId = null
+    unit.attackCooldown = 0
+  })
+}
+
+const map = createSquareMap(MAP_SIZE)
+
 export default {
   namespaced: true,
   state: () => ({
-    map: createSquareMap(MAP_SIZE),
-    ...createScenario(), // группы, все объекты карты и подготовленные очереди
+    map,
+    ...createBattle(map), // кланы, все объекты карты и подготовленные очереди
     phase: PHASES.READY,
     winnerGroupId: null,
     elapsedSeconds: 0,
@@ -59,6 +94,14 @@ export default {
     getMap: (state) => state.map,
     getUnits: (state) => state.entities.filter(isUnit).sort(byDepth),
     getBuildings: (state) => state.entities.filter(isBuilding).sort(byDepth),
+    // здания и персонажи вместе, от дальних к ближним: ближние рисуются поверх
+    getObjects: (state) => {
+      const buildings = state.entities.filter(isBuilding)
+      return state.entities
+        .map((entity) => ({ entity, depth: drawDepth(entity, buildings) }))
+        .sort((a, b) => a.depth - b.depth)
+        .map(({ entity }) => entity)
+    },
     getSelected: (state) => state.entities.filter((entity) => state.selectedIds.includes(entity.id)),
     isSelected: (state) => (id) => state.selectedIds.includes(id),
     getUnitEvents: (state) => (id) => state.events.filter((event) => event.unitId === id),
@@ -87,15 +130,13 @@ export default {
       const next = addOrders(state.events, state.nextEventId, unitIds, order, append)
       state.events = next.events
       state.nextEventId = next.nextEventId
-      if (!append) {
-        state.entities.filter((entity) => unitIds.includes(entity.id)).forEach((unit) => {
-          unit.activeEventId = null
-          unit.target = null
-          unit.path = []
-          unit.attackTargetId = null
-          unit.attackCooldown = 0
-        })
-      }
+      if (!append) resetUnits(state, unitIds)
+    },
+    // готовая очередь целиком; unitIds - чьи приказы заменены, они начинают заново
+    [MUTATIONS.SET_ORDERS]: (state, { events, nextEventId, unitIds = [] }) => {
+      state.events = events
+      state.nextEventId = nextEventId
+      resetUnits(state, unitIds)
     },
     [MUTATIONS.REMOVE_ENTITY]: (state, id) => {
       state.entities = state.entities.filter((entity) => entity.id !== id)
@@ -103,8 +144,8 @@ export default {
       state.events = state.events.filter((event) => event.unitId !== id)
       finishIfNeeded(state)
     },
-    [MUTATIONS.LOAD_SCENARIO]: (state, scenarioId) => {
-      Object.assign(state, createScenario(scenarioId), {
+    [MUTATIONS.NEW_GAME]: (state, groupCount) => {
+      Object.assign(state, createBattle(state.map, groupCount), {
         phase: PHASES.READY,
         winnerGroupId: null,
         elapsedSeconds: 0,
@@ -140,6 +181,9 @@ export default {
     [MUTATIONS.SET_BUILD_GROUP]: (state, groupId) => {
       state.buildGroupId = groupId
     },
+    [MUTATIONS.ADD_GROUP]: (state, group) => {
+      state.groups = [...state.groups, group]
+    },
   },
   actions: {
     setViewport: ({ commit }, viewport) => {
@@ -150,6 +194,12 @@ export default {
     },
     zoomCamera: ({ commit, state }, zoom) => {
       commit(MUTATIONS.SET_CAMERA, zoomCamera(state.camera, state.viewport, zoom, state.map.bounds))
+    },
+    // клик по миникарте: точка мира встает в центр экрана
+    centerCamera: ({ commit, state }, point) => {
+      const screen = worldToScreen(state.camera, state.viewport, point)
+      const delta = { dx: screen.x - state.viewport.width / 2, dy: screen.y - state.viewport.height / 2 }
+      commit(MUTATIONS.SET_CAMERA, panCamera(state.camera, state.viewport, delta, state.map.bounds))
     },
     select: ({ commit, state }, id) => {
       const exists = state.entities.some((entity) => entity.id === id)
@@ -209,8 +259,18 @@ export default {
       const entity = state.entities.find((item) => item.id === id)
       if (entity && isUnit(entity)) commit(MUTATIONS.REMOVE_ENTITY, id)
     },
-    loadScenario: ({ commit }, scenarioId) => {
-      commit(MUTATIONS.LOAD_SCENARIO, scenarioId)
+    // новая партия; без числа - столько же кланов, сколько сейчас
+    newGame: ({ commit, state }, groupCount = state.groups.length || DEFAULT_GROUP_COUNT) => {
+      commit(MUTATIONS.NEW_GAME, groupCount)
+    },
+    // выбранные бойцы идут на все объекты клана groupId, ближайшие первыми; старые приказы заменяются
+    attackGroup: ({ commit, state, getters }, groupId) => {
+      if (state.phase === PHASES.FINISHED) return
+      const units = getters.getSelected.filter((unit) => isUnit(unit) && unit.groupId !== groupId)
+      const targets = state.entities.filter((entity) => entity.groupId === groupId && entity.hp > 0)
+      if (!units.length || !targets.length) return
+      const next = planAttacks(state.events, state.nextEventId, units, targets, false)
+      commit(MUTATIONS.SET_ORDERS, { ...next, unitIds: units.map((unit) => unit.id) })
     },
     start: ({ commit, state }) => {
       if ([PHASES.READY, PHASES.PAUSED].includes(state.phase)) commit(MUTATIONS.SET_PHASE, PHASES.RUNNING)
@@ -227,6 +287,22 @@ export default {
     },
     setBuildGroup: ({ commit, state }, groupId) => {
       if (state.groups.some((group) => group.id === groupId)) commit(MUTATIONS.SET_BUILD_GROUP, groupId)
+    },
+    // новый клан: база на свободном месте, номер больше всех прежних, поэтому id не повторяется
+    // он сразу в общем бою: его бойцы идут на всех, а все прежние бойцы добавляют его в конец своих очередей
+    addGroup: ({ commit, dispatch, state }) => {
+      if (state.phase === PHASES.FINISHED) return
+      const index = Math.max(0, ...state.groups.map((group) => Number(group.id.replace('group', '')))) + 1
+      const group = createGroup(index)
+      const base = createBase(state.map, state.entities, group, index)
+      if (!base.length) return
+      const others = state.entities.filter(isUnit)
+      commit(MUTATIONS.ADD_GROUP, group)
+      base.forEach((entity) => commit(MUTATIONS.ADD_ENTITY, entity))
+      const joined = planAttacks(state.events, state.nextEventId, base.filter(isUnit), state.entities)
+      commit(MUTATIONS.SET_ORDERS, planAttacks(joined.events, joined.nextEventId, others, base))
+      commit(MUTATIONS.SET_BUILD_GROUP, group.id)
+      dispatch('centerCamera', base[0])
     },
     // нажали кнопку здания: начинаем стройку, а если это здание уже строим - отменяем
     startPlacement: ({ commit, state }, type) => {

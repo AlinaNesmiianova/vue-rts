@@ -12,6 +12,7 @@ export const useGameEvents = () => {
     [EVENTS.SELECT_AREA]: (area) => store.dispatch('game/selectArea', area),
     [EVENTS.MOVE]: (options) => store.dispatch('game/moveSelected', options),
     [EVENTS.ATTACK]: (options) => store.dispatch('game/attackSelected', options),
+    [EVENTS.ATTACK_GROUP]: (groupId) => store.dispatch('game/attackGroup', groupId),
     [EVENTS.SELF_DESTRUCT]: (id) => store.dispatch('game/selfDestruct', id),
     [EVENTS.BUILD_START]: (type) => store.dispatch('game/startPlacement', type),
     [EVENTS.BUILD_PLACE]: (options) => store.dispatch('game/placeBuilding', options),

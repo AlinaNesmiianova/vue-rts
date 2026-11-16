@@ -4,11 +4,10 @@ import game, { MUTATIONS, PHASES } from '../store/game.js'
 import { createBuilding, createUnit, isUnit, typeOf, UNIT_TYPES, BUILDING_TYPES } from './entities.js'
 import { worldToScreen } from './camera.js'
 import { canPlaceUnit } from './placement.js'
-import { SCENARIOS } from './scenarios.js'
 
-const createTestStore = (scenarioId = 'duel') => {
+const createTestStore = (groupCount = 2) => {
   const state = game.state()
-  if (scenarioId !== state.scenarioId) game.mutations[MUTATIONS.LOAD_SCENARIO](state, scenarioId)
+  if (groupCount !== state.groups.length) game.mutations[MUTATIONS.NEW_GAME](state, groupCount)
   const commit = (name, payload) => game.mutations[name](state, payload)
   const getters = Object.fromEntries(Object.keys(game.getters).map((name) => [name, null]))
   Object.keys(getters).forEach((name) => Object.defineProperty(getters, name, { get: () => game.getters[name](state) }))
@@ -40,7 +39,7 @@ test('до старта и на паузе кадры не изменяют иг
 })
 
 test('на паузе можно подготовить маршрут и последовательные команды, но нельзя атаковать свою группу', () => {
-  const { state, commit, dispatch } = createTestStore('triangle')
+  const { state, commit, dispatch } = createTestStore(3)
   const unit = state.entities.find((entity) => entity.kind === 'unit' && entity.groupId === 'group3')
   const enemy = state.entities.find((entity) => entity.groupId === 'group2')
   const ally = state.entities.find((entity) => entity.groupId === 'group3' && entity.id !== unit.id)
@@ -62,7 +61,7 @@ test('на паузе можно подготовить маршрут и пос
 })
 
 test('когда уцелели здания и юниты только одной группы, партия завершается и не перезапускается сама', () => {
-  const { state, commit, dispatch } = createTestStore('triangle')
+  const { state, commit, dispatch } = createTestStore(3)
   dispatch('start')
   const last = state.entities.filter((entity) => entity.groupId === 'group3')
   state.entities = [...last, state.entities.find((entity) => entity.groupId === 'group2')]
@@ -76,7 +75,7 @@ test('когда уцелели здания и юниты только одно
   dispatch('start')
   assert.equal(JSON.stringify(state.entities), snapshot)
   assert.equal(state.phase, PHASES.FINISHED)
-  dispatch('loadScenario', 'four')
+  dispatch('newGame', 4)
   assert.equal(state.phase, PHASES.READY)
   assert.equal(state.winnerGroupId, null)
   assert.equal(state.groups.length, 4)
@@ -84,11 +83,11 @@ test('когда уцелели здания и юниты только одно
 })
 
 test('все готовые сценарии автоматически доигрываются до победителя на карте с водой', () => {
-  for (const scenario of SCENARIOS) {
-    const { state, commit, dispatch } = createTestStore(scenario.id)
+  for (const groupCount of [2, 3, 4]) {
+    const { state, commit, dispatch } = createTestStore(groupCount)
     dispatch('start')
     for (let i = 0; i < 3000 && state.phase !== PHASES.FINISHED; i++) commit(MUTATIONS.TICK, 0.1)
-    assert.equal(state.phase, PHASES.FINISHED, scenario.id)
+    assert.equal(state.phase, PHASES.FINISHED, `${groupCount} кланов`)
     assert.ok(state.winnerGroupId)
     assert.equal(new Set(state.entities.map((entity) => entity.groupId)).size, 1)
     assert.ok(state.entities.every((entity) => entity.groupId === state.winnerGroupId))
@@ -133,7 +132,7 @@ test('прямое размещение корабля сохраняет гру
   assert.equal(unit.groupId, 'group2')
   assert.equal(unit.hp, UNIT_TYPES.largeShip.maxHp)
   assert.equal(state.placement.type, 'largeShip')
-  dispatch('loadScenario', 'triangle')
+  dispatch('newGame', 3)
   assert.equal(state.placement, null)
   assert.equal(state.buildGroupId, 'group1')
 })
