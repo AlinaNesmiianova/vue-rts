@@ -13,7 +13,7 @@
         :key="item.key"
         type="button"
         class="build-panel__item"
-        :class="{ 'build-panel__item--active': item.active }"
+        :class="item.classes"
         :style="item.style"
         :disabled="finished"
         @click="onBuildClick(item.key)"
@@ -42,10 +42,13 @@
 <script setup>
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { bus, EVENTS } from '@/game/bus'
 import { BUILDING_TYPES, UNIT_TYPES } from '@/game/entities'
 import { colorOf } from '@/game/groups'
 import { PHASES } from '@/store/game'
+
+const props = defineProps({
+  actions: { type: Object, required: true },
+})
 
 const store = useStore()
 const groups = computed(() => store.state.game.groups)
@@ -59,7 +62,7 @@ const toItem = (key, type) => ({
   name: type.name,
   ship: !!type.ship,
   size: type.ship ? type.size : `${type.size}×${type.size}`,
-  active: placement.value?.type === key,
+  classes: { 'build-panel__item--active': placement.value?.type === key },
   style: { '--color': colorOf(buildGroup.value) },
 })
 
@@ -75,7 +78,7 @@ const sections = computed(() => [
 ])
 
 const onGroupChange = (e) => store.dispatch('game/setBuildGroup', e.target.value)
-const onBuildClick = (key) => bus.emit(EVENTS.BUILD_START, key)
+const onBuildClick = (key) => props.actions.startPlacement(key)
 </script>
 
 <style scoped lang="scss">

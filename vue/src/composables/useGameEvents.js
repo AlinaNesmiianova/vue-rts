@@ -1,24 +1,17 @@
-// связывает шину событий со стором: событие -> экшен
+// callbacks для компонентов игры: действие -> экшен стора
 
-import { onBeforeUnmount, onMounted } from 'vue'
 import { useStore } from 'vuex'
-import { bus, EVENTS } from '@/game/bus'
 
-export const useGameEvents = () => {
-  const store = useStore()
-  const handlers = {
-    [EVENTS.SELECT]: (id) => store.dispatch('game/select', id),
-    [EVENTS.SELECT_TOGGLE]: (id) => store.dispatch('game/toggleSelected', id),
-    [EVENTS.SELECT_AREA]: (area) => store.dispatch('game/selectArea', area),
-    [EVENTS.MOVE]: (options) => store.dispatch('game/moveSelected', options),
-    [EVENTS.ATTACK]: (options) => store.dispatch('game/attackSelected', options),
-    [EVENTS.ATTACK_GROUP]: (groupId) => store.dispatch('game/attackGroup', groupId),
-    [EVENTS.SELF_DESTRUCT]: (id) => store.dispatch('game/selfDestruct', id),
-    [EVENTS.BUILD_START]: (type) => store.dispatch('game/startPlacement', type),
-    [EVENTS.BUILD_PLACE]: (options) => store.dispatch('game/placeBuilding', options),
-    [EVENTS.BUILD_CANCEL]: () => store.dispatch('game/cancelPlacement'),
-    [EVENTS.SPAWN]: (options) => store.dispatch('game/spawnUnits', options),
-  }
-  onMounted(() => Object.entries(handlers).forEach(([event, handler]) => bus.on(event, handler)))
-  onBeforeUnmount(() => Object.entries(handlers).forEach(([event, handler]) => bus.off(event, handler)))
-}
+export const useGameEvents = (store = useStore()) => ({
+  select: (id) => store.dispatch('game/select', id),
+  toggleSelected: (id) => store.dispatch('game/toggleSelected', id),
+  selectArea: (area) => store.dispatch('game/selectArea', area),
+  move: (options) => store.dispatch('game/moveSelected', options),
+  attack: (options) => store.dispatch('game/attackSelected', options),
+  attackGroup: (groupId) => store.dispatch('game/attackGroup', groupId),
+  selfDestruct: (id) => store.dispatch('game/selfDestruct', id),
+  startPlacement: (type) => store.dispatch('game/startPlacement', type),
+  placeBuilding: (options) => store.dispatch('game/placeBuilding', options),
+  cancelPlacement: () => store.dispatch('game/cancelPlacement'),
+  spawn: (options) => store.dispatch('game/spawnUnits', options),
+})

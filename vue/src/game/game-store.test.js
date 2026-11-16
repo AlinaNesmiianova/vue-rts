@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createStore } from 'vuex'
+import { useGameEvents } from '../composables/useGameEvents.js'
 import game, { MUTATIONS, PHASES } from '../store/game.js'
 import { createBuilding, createUnit, isUnit, typeOf, UNIT_TYPES, BUILDING_TYPES } from './entities.js'
 import { worldToScreen } from './camera.js'
@@ -14,6 +16,69 @@ const createTestStore = (groupCount = 2) => {
   const dispatch = (name, payload) => game.actions[name]({ state, getters, commit, dispatch }, payload)
   return { state, commit, dispatch }
 }
+
+test('callbacks выбора и приказов сохраняют очередь и работают независимо для каждой игры', async () => {
+  const store = createStore({ modules: { game } })
+  const otherStore = createStore({ modules: { game } })
+  const actions = useGameEvents(store)
+  const state = store.state.game
+  const unit = createUnit('fast', -5, 0)
+  const ally = createUnit('slow', -5, 3)
+  const enemy = createUnit('slow', 5, 0, 'group2')
+  state.entities = [unit, ally, enemy]
+  state.events = []
+
+  await actions.select(unit.id)
+  await actions.toggleSelected(ally.id)
+  assert.deepEqual(state.selectedIds, [unit.id, ally.id])
+  await actions.toggleSelected(ally.id)
+  await actions.move({ point: worldToScreen(state.camera, state.viewport, { x: -5, y: 4 }) })
+  await actions.attack({ targetId: enemy.id, append: true })
+  assert.deepEqual(state.events.map((event) => event.type), ['move', 'attack'])
+  assert.equal(state.events[1].targetId, enemy.id)
+  assert.deepEqual(otherStore.state.game.selectedIds, [])
+
+  await actions.attackGroup(enemy.groupId)
+  assert.equal(state.events.length, 1)
+  assert.equal(state.events[0].targetId, enemy.id)
+  await actions.select(null)
+  assert.deepEqual(state.selectedIds, [])
+  const point = worldToScreen(state.camera, state.viewport, ally)
+  await actions.selectArea({ from: { x: point.x - 5, y: point.y - 5 }, to: { x: point.x + 5, y: point.y + 5 }, add: false })
+  assert.deepEqual(state.selectedIds, [ally.id])
+  await actions.selfDestruct(ally.id)
+  assert.ok(!state.entities.some((entity) => entity.id === ally.id))
+  assert.deepEqual(state.selectedIds, [])
+})
+
+test('callbacks стройки сохраняют повторное размещение, отмену и запрет найма до готовности', async () => {
+  const store = createStore({ modules: { game } })
+  const actions = useGameEvents(store)
+  const state = store.state.game
+  await store.dispatch('game/setBuildGroup', 'group2')
+  await actions.startPlacement('barracks')
+  await actions.startPlacement('barracks')
+  assert.equal(state.placement, null)
+  await actions.startPlacement('barracks')
+  await store.dispatch('game/movePlacement', worldToScreen(state.camera, state.viewport, { x: -30.5, y: 0.5 }))
+  await actions.placeBuilding({ keep: true })
+  const building = state.entities.at(-1)
+  assert.equal(building.type, 'barracks')
+  assert.equal(building.groupId, 'group2')
+  assert.equal(building.progress, 0)
+  assert.equal(state.placement.type, 'barracks')
+  const spawns = BUILDING_TYPES.barracks.spawns
+  const type = Array.isArray(spawns) ? spawns[0] : spawns
+  const before = state.entities.length
+  await actions.spawn({ id: building.id, type, count: 1 })
+  assert.equal(state.entities.length, before)
+  building.progress = 1
+  await actions.spawn({ id: building.id, type, count: 1 })
+  assert.equal(state.entities.length, before + 1)
+  assert.equal(state.entities.at(-1).groupId, 'group2')
+  await actions.cancelPlacement()
+  assert.equal(state.placement, null)
+})
 
 test('до старта и на паузе кадры не изменяют игру, после продолжения работают', () => {
   const { state, commit, dispatch } = createTestStore()

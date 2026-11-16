@@ -1,7 +1,7 @@
 <template>
   <div class="game-page">
-    <GameField />
-    <BuildPanel class="game-page__build" />
+    <GameField :actions="actions" />
+    <BuildPanel class="game-page__build" :actions="actions" />
 
     <div class="game-page__toolbar">
       <div class="game-page__header">
@@ -23,7 +23,7 @@
       </div>
       <!-- кланов может быть сколько угодно: длинный список прокручивается -->
       <div class="game-page__groups">
-        <div v-for="row in groupRows" :key="row.id" class="game-page__group" :class="{ 'game-page__group--eliminated': row.eliminated }">
+        <div v-for="row in groupRows" :key="row.id" class="game-page__group" :class="row.classes">
           <i class="game-page__dot" :style="row.dotStyle"></i>
           <span>{{ row.name }}</span>
           <span class="game-page__count">{{ row.units }} бойц. · {{ row.buildings }} зд.</span>
@@ -44,7 +44,7 @@
     <!-- луна над лесом, только украшение -->
     <div class="game-page__moon"></div>
 
-    <SelectionPanel class="game-page__panel" />
+    <SelectionPanel class="game-page__panel" :actions="actions" />
     <MiniMap class="game-page__minimap" />
   </div>
 </template>
@@ -72,6 +72,7 @@ const PAUSE_LABELS = {
 }
 
 const store = useStore()
+const actions = useGameEvents()
 const phase = computed(() => store.state.game.phase)
 const finished = computed(() => phase.value === PHASES.FINISHED)
 const groups = computed(() => store.state.game.groups)
@@ -88,7 +89,7 @@ const groupRows = computed(() => groups.value.map((group) => {
     dotStyle: { background: group.color },
     units: entities.filter(isUnit).length,
     buildings: entities.filter(isBuilding).length,
-    eliminated: !entities.length,
+    classes: { 'game-page__group--eliminated': !entities.length },
   }
 }))
 
@@ -111,7 +112,6 @@ const onKeydown = (event) => {
   togglePause()
 }
 
-useGameEvents()
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>

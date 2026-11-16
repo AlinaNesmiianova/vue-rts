@@ -8,7 +8,7 @@
     <template v-else-if="entity">
       <div class="selection-panel__heading">
         <strong>{{ type.name }}</strong>
-        <span class="selection-panel__group" :style="groupStyle">{{ group?.name }}</span>
+        <span class="selection-panel__group" :style="groupStyle">{{ groupName }}</span>
       </div>
       <div class="selection-panel__details">
         <span>Здоровье: <strong>{{ entity.hp }} / {{ type.maxHp }}</strong></span>
@@ -43,7 +43,7 @@
 
       <div v-if="entityIsUnit" class="selection-panel__actions">
         <span>{{ orderStatus }} · Команд: {{ orders.length }}</span>
-        <button v-if="!finished" type="button" class="selection-panel__destroy" @click="onSelfDestruct">
+        <button v-if="canSelfDestruct" type="button" class="selection-panel__destroy" @click="onSelfDestruct">
           Самоуничтожение
         </button>
       </div>
@@ -62,7 +62,7 @@
       >{{ option.name }}</button>
     </div>
 
-    <template v-if="!selected.length">
+    <template v-if="emptySelection">
       <span class="selection-panel__hint">ЛКМ — выбрать · рамка — несколько · ПКМ — идти / атаковать · Shift + ПКМ — в очередь · WASD — камера</span>
     </template>
   </div>
@@ -71,22 +71,28 @@
 <script setup>
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { bus, EVENTS } from '@/game/bus'
 import { isBuilt, isUnit, typeOf, UNIT_TYPES } from '@/game/entities'
 import { PHASES } from '@/store/game'
 
 const SPAWN_COUNTS = [1, 5, 10]
 
+const props = defineProps({
+  actions: { type: Object, required: true },
+})
+
 const store = useStore()
 const selected = computed(() => store.getters['game/getSelected'])
+const emptySelection = computed(() => !selected.value.length)
 const multiple = computed(() => selected.value.length > 1)
 const entity = computed(() => selected.value[0] ?? null)
 const entityIsUnit = computed(() => !!entity.value && isUnit(entity.value))
 const type = computed(() => entity.value && typeOf(entity.value))
 const group = computed(() => entity.value && store.getters['game/getGroup'](entity.value.groupId))
+const groupName = computed(() => group.value?.name)
 const groupStyle = computed(() => ({ borderColor: group.value?.color, color: group.value?.color }))
 const orders = computed(() => (entity.value ? store.getters['game/getUnitEvents'](entity.value.id) : []))
 const finished = computed(() => store.state.game.phase === PHASES.FINISHED)
+const canSelfDestruct = computed(() => entityIsUnit.value && !finished.value)
 const cell = computed(() => `${Math.floor(entity.value.x)}, ${Math.floor(entity.value.y)}`)
 
 // несколько выбранных: сколько каких типов
@@ -126,9 +132,9 @@ const attackOptions = computed(() => {
     .map((clan) => ({ id: clan.id, name: clan.name, style: { borderColor: clan.color, color: clan.color } }))
 })
 
-const onAttackGroup = (groupId) => bus.emit(EVENTS.ATTACK_GROUP, groupId)
-const onSpawn = (spawnType, count) => bus.emit(EVENTS.SPAWN, { id: entity.value.id, count, type: spawnType })
-const onSelfDestruct = () => bus.emit(EVENTS.SELF_DESTRUCT, entity.value.id)
+const onAttackGroup = (groupId) => props.actions.attackGroup(groupId)
+const onSpawn = (spawnType, count) => props.actions.spawn({ id: entity.value.id, count, type: spawnType })
+const onSelfDestruct = () => props.actions.selfDestruct(entity.value.id)
 </script>
 
 <style scoped lang="scss">

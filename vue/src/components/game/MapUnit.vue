@@ -14,7 +14,7 @@
   <!-- персонаж - стоячая фигурка, корабль - корпус, вписанный в круг столкновений -->
   <g
     class="map-unit"
-    :class="{ 'map-unit--selected': selected }"
+    :class="classes"
     :style="colorStyle"
     @mousedown.left.exact.stop="onSelect"
     @mousedown.left.shift.exact.stop="onToggle"
@@ -34,7 +34,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { bus, EVENTS } from '@/game/bus'
 import { shipPoints, UNIT_TYPES } from '@/game/entities'
 import { colorOf } from '@/game/groups'
 import { FIGURES, toPoints, UPRIGHT } from '@/game/visuals'
@@ -44,12 +43,14 @@ const HIT_TIME = 200 // мс, вспышка при попадании
 
 const props = defineProps({
   unit: { type: Object, required: true },
+  actions: { type: Object, required: true },
 })
 
 const store = useStore()
 const type = computed(() => UNIT_TYPES[props.unit.type])
 const group = computed(() => store.getters['game/getGroup'](props.unit.groupId))
 const selected = computed(() => store.getters['game/isSelected'](props.unit.id))
+const classes = computed(() => ({ 'map-unit--selected': selected.value }))
 const orders = computed(() => store.getters['game/getUnitEvents'](props.unit.id))
 const colorStyle = computed(() => ({ '--color': colorOf(group.value) }))
 const hull = computed(() => (type.value.ship ? shipPoints(props.unit.x, props.unit.y, type.value.size) : null))
@@ -108,8 +109,8 @@ const routePoints = computed(() => {
 const route = computed(() => routePoints.value.length && toPoints([props.unit, ...routePoints.value]))
 const waypoints = computed(() => routePoints.value.slice(1))
 
-const onSelect = () => bus.emit(EVENTS.SELECT, props.unit.id)
-const onToggle = () => bus.emit(EVENTS.SELECT_TOGGLE, props.unit.id)
+const onSelect = () => props.actions.select(props.unit.id)
+const onToggle = () => props.actions.toggleSelected(props.unit.id)
 </script>
 
 <style scoped lang="scss">

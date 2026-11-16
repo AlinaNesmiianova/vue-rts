@@ -8,7 +8,7 @@ const MUTATIONS = {
 }
 
 export default createStore({
-  state () {
+  state: () => {
     return {
       count: 0
     }
