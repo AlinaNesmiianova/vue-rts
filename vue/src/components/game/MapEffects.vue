@@ -13,9 +13,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { bus, EVENTS } from '@/game/bus'
 import { screenToWorld } from '@/game/camera'
 import { isUnit, typeOf } from '@/game/entities'
 import { colorOf } from '@/game/groups'
@@ -79,14 +78,12 @@ const strikes = computed(() => {
     })
 })
 
-onMounted(() => {
-  bus.on(EVENTS.MOVE, onMove)
-  bus.on(EVENTS.ATTACK, onAttack)
+// callbacks стора показывают маркеры приказов; при уходе с поля отписываемся
+const unsubscribe = store.subscribeAction(({ type, payload }) => {
+  if (type === 'game/moveSelected') onMove(payload)
+  if (type === 'game/attackSelected') onAttack(payload)
 })
-onBeforeUnmount(() => {
-  bus.off(EVENTS.MOVE, onMove)
-  bus.off(EVENTS.ATTACK, onAttack)
-})
+onBeforeUnmount(unsubscribe)
 </script>
 
 <style scoped lang="scss">

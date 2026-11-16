@@ -24,7 +24,6 @@
 <script setup>
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { bus, EVENTS } from '@/game/bus'
 import { BUILDING_TYPES, isBuilt } from '@/game/entities'
 import { colorOf } from '@/game/groups'
 import { shipyardLayout, toBox } from '@/game/placement'
@@ -34,6 +33,7 @@ const PUFFS = 3 // клубов дыма одновременно
 
 const props = defineProps({
   building: { type: Object, required: true },
+  actions: { type: Object, required: true },
 })
 
 const store = useStore()
@@ -77,8 +77,8 @@ const smoke = computed(() => {
 })
 const fire = computed(() => (built.value && health.value < 0.25 ? puffsAt(roofPoint.value, 0.35, 'map-building__fire') : []))
 
-const onSelect = () => bus.emit(EVENTS.SELECT, props.building.id)
-const onToggle = () => bus.emit(EVENTS.SELECT_TOGGLE, props.building.id)
+const onSelect = () => props.actions.select(props.building.id)
+const onToggle = () => props.actions.toggleSelected(props.building.id)
 </script>
 
 <style scoped lang="scss">

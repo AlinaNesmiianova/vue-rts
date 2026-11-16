@@ -14,10 +14,10 @@
       <MapGround :map="map" />
       <!-- здания и персонажи одним списком по глубине: ближние перекрывают дальние -->
       <!-- во время стройки объекты не ловят клики: клик ставит здание, а не выбирает -->
-      <g :class="{ 'game-field__objects--placing': placement }">
+      <g :class="objectsClass">
         <template v-for="item in objects" :key="item.entity.id">
-          <MapBuilding v-if="item.building" :building="item.entity" />
-          <MapUnit v-else :unit="item.entity" />
+          <MapBuilding v-if="item.building" :building="item.entity" :actions="actions" />
+          <MapUnit v-else :unit="item.entity" :actions="actions" />
         </template>
       </g>
       <MapEffects />
@@ -43,7 +43,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
-import { bus, EVENTS } from '@/game/bus'
 import { clamp, screenToWorld } from '@/game/camera'
 import { BUILDING_TYPES, canAttack, entityAtPoint, isBuilding, typeOf } from '@/game/entities'
 import { isClick, toRect } from '@/game/selection'
@@ -63,6 +62,10 @@ const HP_WIDTH = 40 // px, полная полоска здоровья
 const UNIT_HEIGHT = 1.4 // высота фигурки персонажа в клетках
 const HP_OFFSET = 8 // px над макушкой
 
+const props = defineProps({
+  actions: { type: Object, required: true },
+})
+
 const store = useStore()
 const svg = ref(null)
 const mouse = { x: 0, y: 0, inside: false } // не реактивный: нужен только циклу
@@ -75,6 +78,7 @@ const toScreen = (point) => store.getters['game/toScreen'](point)
 const groupColor = (id) => store.getters['game/getGroup'](id)?.color ?? '#999999'
 const matrix = computed(() => store.getters['game/getCameraMatrix'])
 const placement = computed(() => store.getters['game/getPlacement'])
+const objectsClass = computed(() => ({ 'game-field__objects--placing': !!placement.value }))
 const center = computed(() => toScreen({ x: 0, y: 0 }))
 const labels = computed(() => {
   const { maxX, maxY } = map.value.bounds
@@ -113,7 +117,7 @@ const toLocal = (e) => {
 // ЛКМ: во время стройки - поставить здание (shift - строить дальше), иначе начинаем рамку выделения
 const onLeftClick = (e) => {
   if (placement.value) {
-    if (!e.ctrlKey) bus.emit(EVENTS.BUILD_PLACE, { keep: e.shiftKey }) // ctrl+клик на маке - это правый клик
+    if (!e.ctrlKey) props.actions.placeBuilding({ keep: e.shiftKey }) // ctrl+клик на маке - это правый клик
     return
   }
 
@@ -128,22 +132,22 @@ const onMouseUp = () => {
   const { from, to, add } = drag.value
   drag.value = null
 
-  if (!isClick(toRect(from, to))) bus.emit(EVENTS.SELECT_AREA, { from, to, add })
-  else if (!add) bus.emit(EVENTS.SELECT, null)
+  if (!isClick(toRect(from, to))) props.actions.selectArea({ from, to, add })
+  else if (!add) props.actions.select(null)
 }
 
 // ПКМ: отмена стройки, атака противника или движение; shift добавляет приказ в очередь
 const onRightClick = (e) => {
   if (placement.value) {
-    bus.emit(EVENTS.BUILD_CANCEL)
+    props.actions.cancelPlacement()
     return
   }
   const point = toLocal(e)
   const { camera, viewport, entities } = store.state.game
   const target = entityAtPoint(entities, screenToWorld(camera, viewport, point))
   const selected = store.getters['game/getSelected']
-  if (target && selected.some((unit) => canAttack(unit, target))) bus.emit(EVENTS.ATTACK, { targetId: target.id, append: e.shiftKey })
-  else bus.emit(EVENTS.MOVE, { point, append: e.shiftKey })
+  if (target && selected.some((unit) => canAttack(unit, target))) props.actions.attack({ targetId: target.id, append: e.shiftKey })
+  else props.actions.move({ point, append: e.shiftKey })
 }
 
 // запоминаем курсор для прокрутки у края; во время стройки двигаем за ним здание-призрак
@@ -186,7 +190,7 @@ const resizeObserver = new ResizeObserver(([entry]) =>
 
 // Esc - отменить стройку; ловим само нажатие, а не проверяем в цикле: короткое нажатие цикл может пропустить
 const onKeyDown = (e) => {
-  if (e.code === 'Escape' && placement.value) bus.emit(EVENTS.BUILD_CANCEL)
+  if (e.code === 'Escape' && placement.value) props.actions.cancelPlacement()
 }
 
 onMounted(() => {
