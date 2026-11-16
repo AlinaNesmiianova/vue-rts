@@ -1,23 +1,9 @@
 <template>
   <!-- здание, которое сейчас ставим: зеленое - место свободно, красное - нельзя -->
-  <g
-    v-if="placement && placement.x !== null"
-    class="building-ghost"
-    :class="valid ? 'building-ghost--valid' : 'building-ghost--invalid'"
-  >
-    <polygon v-if="type.ship" :points="shipPoints(placement.x, placement.y, size)" />
-    <template v-else-if="layout">
-      <rect
-        :x="layout.dock.minX" :y="layout.dock.minY"
-        :width="layout.dock.maxX - layout.dock.minX" :height="layout.dock.maxY - layout.dock.minY"
-        class="building-ghost__dock"
-      />
-      <rect
-        v-for="(part, index) in layout.parts" :key="index"
-        :x="part.minX" :y="part.minY" :width="part.maxX - part.minX" :height="part.maxY - part.minY"
-      />
-    </template>
-    <rect v-else :x="placement.x - size / 2" :y="placement.y - size / 2" :width="size" :height="size" />
+  <g v-if="visible" class="building-ghost" :class="stateClass">
+    <polygon v-if="hull" :points="hull" />
+    <rect v-if="dock" v-bind="dock" class="building-ghost__dock" />
+    <rect v-for="(rect, index) in rects" :key="index" v-bind="rect" />
   </g>
 </template>
 
@@ -25,17 +11,27 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { BUILDING_TYPES, shipPoints, UNIT_TYPES } from '@/game/entities'
-import { shipyardDirection, shipyardLayout } from '@/game/placement'
+import { shipyardDirection, shipyardLayout, toBox } from '@/game/placement'
+import { rectOf } from '@/game/visuals'
 
 const store = useStore()
 const placement = computed(() => store.getters['game/getPlacement'])
-const valid = computed(() => store.getters['game/isPlacementValid'])
-const type = computed(() => placement.value ? BUILDING_TYPES[placement.value.type] ?? UNIT_TYPES[placement.value.type] : null)
-const size = computed(() => type.value?.size ?? 0)
+const visible = computed(() => placement.value && placement.value.x !== null)
+const stateClass = computed(() => (store.getters['game/isPlacementValid'] ? 'building-ghost--valid' : 'building-ghost--invalid'))
+const type = computed(() => visible.value && (BUILDING_TYPES[placement.value.type] ?? UNIT_TYPES[placement.value.type]))
+
+// корабль рисуем корпусом, остальные здания - прямоугольниками
+const hull = computed(() => type.value?.ship && shipPoints(placement.value.x, placement.value.y, type.value.size))
 const layout = computed(() => {
-  if (placement.value?.type !== 'shipyard' || placement.value.x === null) return null
+  if (!visible.value || placement.value.type !== 'shipyard') return null
   const direction = shipyardDirection(store.getters['game/getMap'], placement.value)
   return shipyardLayout({ ...placement.value, direction })
+})
+const dock = computed(() => layout.value && rectOf(layout.value.dock))
+const rects = computed(() => {
+  if (!type.value || type.value.ship) return []
+  const boxes = layout.value ? layout.value.parts : [toBox(placement.value.x, placement.value.y, type.value.size)]
+  return boxes.map(rectOf)
 })
 </script>
 
@@ -43,10 +39,10 @@ const layout = computed(() => {
 .building-ghost {
   stroke-width: 2;
   stroke-dasharray: 6 4;
-  vector-effect: non-scaling-stroke;
   pointer-events: none;
 
-  & > rect, & > polygon {
+  rect,
+  polygon {
     vector-effect: non-scaling-stroke;
   }
 

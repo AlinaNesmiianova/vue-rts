@@ -7,47 +7,36 @@
     @contextmenu.prevent
     @wheel.prevent="onWheel"
     @mousemove="onMouseMove"
-    @mouseleave="mouse.inside = false"
+    @mouseleave="onMouseLeave"
   >
     <!-- все внутри рисуется в координатах мира, матрица камеры делает из квадратов ромбы -->
     <g :transform="matrix">
       <MapGround :map="map" />
+      <!-- здания и персонажи одним списком по глубине: ближние перекрывают дальние -->
       <!-- во время стройки объекты не ловят клики: клик ставит здание, а не выбирает -->
       <g :class="{ 'game-field__objects--placing': placement }">
-        <MapBuilding v-for="building in buildings" :key="building.id" :building="building" />
-        <MapUnit v-for="unit in units" :key="unit.id" :unit="unit" />
+        <template v-for="item in objects" :key="item.entity.id">
+          <MapBuilding v-if="item.building" :building="item.entity" />
+          <MapUnit v-else :unit="item.entity" />
+        </template>
       </g>
+      <MapEffects />
+      <MapFog />
       <BuildingGhost />
     </g>
 
-    <!-- HP рисуется в экранных координатах, чтобы шкала не искажалась изометрией. -->
-    <g
-      v-for="entity in entities"
-      :key="`hp-${entity.id}`"
-      class="game-field__health"
-      :transform="`translate(${toScreen(entity).x}, ${toScreen(entity).y - (isBuilding(entity) ? typeOf(entity).size * 8 + 12 : 19)})`"
-    >
-      <rect x="-21" y="-3" width="42" height="7" rx="2" fill="#1d2226" stroke="#0d1115" stroke-width="1" />
-      <rect
-        x="-20" y="-2" :width="40 * entity.hp / typeOf(entity).maxHp" height="5" rx="1"
-        :fill="groupColor(entity.groupId)"
-      />
+    <!-- HP рисуется в экранных координатах, чтобы шкала не искажалась изометрией -->
+    <!-- полоска видна у выбранных и раненых, чтобы не загромождать поле -->
+    <g v-for="bar in healthBars" :key="bar.id" class="game-field__health" :transform="bar.transform">
+      <rect x="-21" y="-3" width="42" height="7" rx="2" class="game-field__health-back" />
+      <rect x="-20" y="-2" :width="bar.width" height="5" rx="1" :fill="bar.color" />
     </g>
 
-    <circle :cx="labels.center.x" :cy="labels.center.y" r="4" class="game-field__center" />
-    <text :x="labels.center.x + 8" :y="labels.center.y - 6" class="game-field__label">(0, 0)</text>
-    <text :x="labels.x.x + 6" :y="labels.x.y" class="game-field__label">x</text>
-    <text :x="labels.y.x - 14" :y="labels.y.y" class="game-field__label">y</text>
+    <circle :cx="center.x" :cy="center.y" r="4" class="game-field__center" />
+    <text v-for="label in labels" :key="label.text" :x="label.x" :y="label.y" class="game-field__label">{{ label.text }}</text>
 
     <!-- рамка выделения, рисуется в точках экрана -->
-    <rect
-      v-if="box"
-      :x="box.minX"
-      :y="box.minY"
-      :width="box.maxX - box.minX"
-      :height="box.maxY - box.minY"
-      class="game-field__box"
-    />
+    <rect v-if="box" v-bind="box" class="game-field__box" />
   </svg>
 </template>
 
@@ -56,17 +45,23 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
 import { bus, EVENTS } from '@/game/bus'
 import { clamp, screenToWorld } from '@/game/camera'
-import { canAttack, entityAtPoint, isBuilding, typeOf } from '@/game/entities'
+import { BUILDING_TYPES, canAttack, entityAtPoint, isBuilding, typeOf } from '@/game/entities'
 import { isClick, toRect } from '@/game/selection'
+import { buildingTop, rectOf } from '@/game/visuals'
 import { useGameLoop } from '@/composables/useGameLoop'
 import { useKeyboard } from '@/composables/useKeyboard'
 import MapGround from './MapGround.vue'
 import MapBuilding from './MapBuilding.vue'
 import MapUnit from './MapUnit.vue'
 import BuildingGhost from './BuildingGhost.vue'
+import MapEffects from './MapEffects.vue'
+import MapFog from './MapFog.vue'
 
 const EDGE = 16
 const PAN_SPEED = 700
+const HP_WIDTH = 40 // px, полная полоска здоровья
+const UNIT_HEIGHT = 1.4 // высота фигурки персонажа в клетках
+const HP_OFFSET = 8 // px над макушкой
 
 const store = useStore()
 const svg = ref(null)
@@ -75,19 +70,39 @@ const { isPressed } = useKeyboard()
 const drag = ref(null) // рамка выделения: { from, to, add }, пока зажата ЛКМ
 
 const map = computed(() => store.getters['game/getMap'])
-const buildings = computed(() => store.getters['game/getBuildings'])
-const units = computed(() => store.getters['game/getUnits'])
-const entities = computed(() => store.state.game.entities)
+const objects = computed(() => store.getters['game/getObjects'].map((entity) => ({ entity, building: isBuilding(entity) })))
 const toScreen = (point) => store.getters['game/toScreen'](point)
 const groupColor = (id) => store.getters['game/getGroup'](id)?.color ?? '#999999'
 const matrix = computed(() => store.getters['game/getCameraMatrix'])
 const placement = computed(() => store.getters['game/getPlacement'])
+const center = computed(() => toScreen({ x: 0, y: 0 }))
 const labels = computed(() => {
-  const toScreen = store.getters['game/toScreen']
   const { maxX, maxY } = map.value.bounds
-  return { center: toScreen({ x: 0, y: 0 }), x: toScreen({ x: maxX, y: 0 }), y: toScreen({ x: 0, y: maxY }) }
+  const x = toScreen({ x: maxX, y: 0 })
+  const y = toScreen({ x: 0, y: maxY })
+  return [
+    { text: '(0, 0)', x: center.value.x + 8, y: center.value.y - 6 },
+    { text: 'x', x: x.x + 6, y: x.y },
+    { text: 'y', x: y.x - 14, y: y.y },
+  ]
 })
-const box = computed(() => drag.value && toRect(drag.value.from, drag.value.to))
+const box = computed(() => drag.value && rectOf(toRect(drag.value.from, drag.value.to)))
+
+// полоска над макушкой: подъем на h в мире - это сдвиг на -h по обеим осям
+const healthTop = (entity) => {
+  const lift = isBuilding(entity)
+    ? BUILDING_TYPES[entity.type].size / 2 + buildingTop(entity, BUILDING_TYPES[entity.type].height)
+    : UNIT_HEIGHT
+  return toScreen({ x: entity.x - lift, y: entity.y - lift }).y - HP_OFFSET
+}
+const healthBars = computed(() => store.state.game.entities
+  .filter((entity) => entity.hp < typeOf(entity).maxHp || store.getters['game/isSelected'](entity.id))
+  .map((entity) => ({
+    id: entity.id,
+    transform: `translate(${toScreen(entity).x}, ${healthTop(entity)})`,
+    width: (HP_WIDTH * entity.hp) / typeOf(entity).maxHp,
+    color: groupColor(entity.groupId),
+  })))
 
 // координаты события внутри svg
 const toLocal = (e) => {
@@ -139,6 +154,10 @@ const onMouseMove = (e) => {
   if (drag.value) drag.value.to = point
 }
 
+const onMouseLeave = () => {
+  mouse.inside = false
+}
+
 // щипок на тачпаде (и ctrl+колесо) приходит с ctrlKey -> зум, свайп двумя пальцами -> сдвиг камеры
 const onWheel = (e) => {
   if (e.ctrlKey) store.dispatch('game/zoomCamera', { point: toLocal(e), factor: Math.exp(-clamp(e.deltaY, -50, 50) * 0.01) })
@@ -187,10 +206,16 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: 100%;
-  background: #0b0d10;
+  background: #0c1214;
 
-  &__health, &__objects--placing {
+  &__health,
+  &__objects--placing {
     pointer-events: none;
+  }
+
+  &__health-back {
+    fill: #1d2226;
+    stroke: #0d1115;
   }
 
   &__center {
