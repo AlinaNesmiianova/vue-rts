@@ -1,12 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createBuilding, createUnit, typeOf } from './entities.js'
+import { createBuilding, createUnit, typeOf, UNIT_TYPES } from './entities.js'
 import { addOrders, ORDER_TYPES } from './events.js'
 import { advanceFrame } from './frame.js'
 import { createSquareMap } from './map.js'
 import { canPlaceUnit } from './placement.js'
 
 const move = (x, y) => ({ type: ORDER_TYPES.MOVE, target: { x, y } })
+// время, за которое быстрый проходит 3 клетки: расстояния в тестах не зависят от его скорости
+const T = 3 / UNIT_TYPES.fast.speed
 
 test('обычный приказ заменяет маршрут, Shift добавляет событие со связью nextId', () => {
   const unit = createUnit('fast', 0, 0)
@@ -28,14 +30,14 @@ test('при достижении первой точки юнит без ост
   const second = addOrders(first.events, first.nextEventId, [unit.id], move(3, 0), true)
   const before = JSON.stringify({ unit, events: second.events })
 
-  const frame = advanceFrame([unit], second.events, 0.5) // fast: 3 клетки/сек
+  const frame = advanceFrame([unit], second.events, 0.5 * T) // 1.5 клетки
   assert.ok(Math.abs(frame.entities[0].x - 1.5) < 1e-9)
   assert.equal(frame.events.length, 1)
   assert.equal(frame.events[0].id, second.events[1].id)
   assert.deepEqual(frame.entities[0].target, { x: 3, y: 0 })
   assert.equal(JSON.stringify({ unit, events: second.events }), before) // чистый пересчёт кадра
 
-  const finished = advanceFrame(frame.entities, frame.events, 0.5)
+  const finished = advanceFrame(frame.entities, frame.events, 0.5 * T)
   assert.equal(finished.entities[0].x, 3)
   assert.equal(finished.entities[0].target, null)
   assert.deepEqual(finished.events, [])
@@ -46,7 +48,7 @@ test('разные юниты выполняют собственные очер
   const second = createUnit('slow', 0, 2)
   let queue = addOrders([], 1, [first.id, second.id], move(1, 0))
   queue = addOrders(queue.events, queue.nextEventId, [first.id], move(4, 0), true)
-  const frame = advanceFrame([first, second], queue.events, 1)
+  const frame = advanceFrame([first, second], queue.events, T)
 
   assert.equal(frame.entities[0].x, 3)
   assert.ok(frame.entities[1].x > 0)
@@ -60,11 +62,11 @@ test('атака после перемещения запускается тол
   let queue = addOrders([], 1, [unit.id], move(2, 0))
   queue = addOrders(queue.events, queue.nextEventId, [unit.id], { type: ORDER_TYPES.ATTACK, targetId: enemy.id }, true)
 
-  const first = advanceFrame([unit, enemy], queue.events, 0.5)
+  const first = advanceFrame([unit, enemy], queue.events, 0.5 * T)
   assert.equal(first.entities[1].hp, enemy.hp)
   assert.equal(first.entities[0].attackTargetId, null)
 
-  const second = advanceFrame(first.entities, first.events, 0.5)
+  const second = advanceFrame(first.entities, first.events, 0.5 * T)
   assert.equal(second.entities[0].x, 2)
   assert.equal(second.entities[0].attackTargetId, enemy.id)
   assert.equal(second.entities[1].hp, enemy.hp)
@@ -78,7 +80,7 @@ test('исчезнувшая цель не блокирует следующий
   let queue = addOrders([], 1, [unit.id], { type: ORDER_TYPES.ATTACK, targetId: enemy.id })
   queue = addOrders(queue.events, queue.nextEventId, [unit.id], move(2, 0), true)
 
-  const frame = advanceFrame([unit], queue.events, 0.5)
+  const frame = advanceFrame([unit], queue.events, 0.5 * T)
   assert.equal(frame.events.length, 1)
   assert.equal(frame.events[0].type, ORDER_TYPES.MOVE)
   assert.equal(frame.entities[0].x, 1.5)
@@ -165,7 +167,7 @@ test('следующая команда использует остаток ка
   const unit = createUnit('fast', 0, 0)
   let queue = addOrders([], 1, [unit.id], move(1, 0))
   queue = addOrders(queue.events, queue.nextEventId, [unit.id], move(3, 0), true)
-  const frame = advanceFrame([unit], queue.events, 0.5, map)
+  const frame = advanceFrame([unit], queue.events, 0.5 * T, map)
   assert.equal(frame.entities[0].x, 1.5)
   assert.equal(frame.events.length, 1)
 })

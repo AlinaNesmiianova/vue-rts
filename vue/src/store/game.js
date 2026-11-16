@@ -3,7 +3,7 @@
 
 import { cameraMatrix, createCamera, panCamera, screenToWorld, worldToScreen, zoomCamera } from '../game/camera.js'
 import { containsPoint, createSquareMap } from '../game/map.js'
-import { BUILDING_TYPES, canAttack, createBuilding, createUnit, isBuilding, isUnit, typeOf, UNIT_TYPES } from '../game/entities.js'
+import { BUILDING_TYPES, canAttack, createBuilding, createUnit, isBuilding, isBuilt, isUnit, typeOf, UNIT_TYPES } from '../game/entities.js'
 import { addOrders, ORDER_TYPES } from '../game/events.js'
 import { advanceFrame } from '../game/frame.js'
 import { createScenario } from '../game/scenarios.js'
@@ -245,9 +245,10 @@ export default {
     placeBuilding: ({ commit, state, getters }, { keep = false } = {}) => {
       if (state.phase === PHASES.FINISHED || !getters.isPlacementValid) return
       const { type, x, y } = state.placement
+      // корабль появляется сразу, здание начинает строиться с нуля
       const entity = UNIT_TYPES[type]?.ship
         ? createUnit(type, x, y, state.buildGroupId)
-        : createBuilding(type, x, y, state.buildGroupId, type === 'shipyard' ? shipyardDirection(state.map, { x, y }) : undefined)
+        : { ...createBuilding(type, x, y, state.buildGroupId, type === 'shipyard' ? shipyardDirection(state.map, { x, y }) : undefined), progress: 0 }
       commit(MUTATIONS.ADD_ENTITY, entity)
       if (!keep) commit(MUTATIONS.SET_PLACEMENT, null)
     },
@@ -255,6 +256,7 @@ export default {
     spawnUnits: ({ commit, state }, { id, count = 1, type }) => {
       if (state.phase === PHASES.FINISHED) return
       const building = state.entities.find((entity) => entity.id === id && isBuilding(entity))
+      if (!building || !isBuilt(building)) return // недостроенное здание никого не создает
       const spawns = building && BUILDING_TYPES[building.type].spawns
       const types = Array.isArray(spawns) ? spawns : spawns ? [spawns] : []
       const unitType = type ?? types[0]
