@@ -107,6 +107,7 @@ test('здания строятся для выбранной группы, пе
     assert.equal(building.groupId, 'group2')
     assert.equal(building.hp, BUILDING_TYPES[type].maxHp)
     assert.equal(state.placement, null)
+    building.progress = 1 // недостроенное здание не создает персонажей, достраиваем сразу
     const spawns = BUILDING_TYPES[type].spawns
     for (const unitType of Array.isArray(spawns) ? spawns : [spawns]) {
       const before = state.entities.length

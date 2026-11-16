@@ -23,7 +23,8 @@ const ringCells = (box, ring) => {
 }
 
 // ближайшая к зданию свободная клетка для персонажа unitType; null - вокруг все занято
-// внутри кольца сначала клетки ближе к центру здания (середины сторон, а не углы)
+// внутри кольца сначала ближние к зрителю стороны (x или y больше, чем у здания), чтобы новичка не закрыло стеной,
+// потом клетки ближе к центру здания (середины сторон, а не углы)
 export const findSpawnPoint = (map, entities, building, unitType) => {
   const box = toBox(building.x, building.y, BUILDING_TYPES[building.type].size)
   const distance = (p) => Math.hypot(p.x - building.x, p.y - building.y)
@@ -35,9 +36,10 @@ export const findSpawnPoint = (map, entities, building, unitType) => {
   }
 
   for (let ring = 1; ring <= MAX_RING; ring++) {
+    const isFront = (p) => p.x > box.maxX || p.y > box.maxY
     const free = ringCells(box, ring)
       .filter((p) => canPlaceUnit(map, entities, UNIT_TYPES[unitType], p))
-      .sort((a, b) => distance(a) - distance(b))
+      .sort((a, b) => isFront(b) - isFront(a) || distance(a) - distance(b))
     if (free.length) {
       return free[0]
     }

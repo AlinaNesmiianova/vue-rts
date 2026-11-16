@@ -1,7 +1,7 @@
 // Один кадр: берём состояние карты и текущие события, применяем приказы и
 // возвращаем новое состояние. Компоненты ничего не рассчитывают сами.
 import { advanceBattle } from './combat.js'
-import { canAttack, isUnit, stepToTarget, typeOf } from './entities.js'
+import { canAttack, isBuilding, isBuilt, isUnit, stepToTarget, typeOf } from './entities.js'
 import { ORDER_TYPES, removeOrder } from './events.js'
 import { advanceUnit, routeUnit } from './pathfinding.js'
 
@@ -11,6 +11,11 @@ export const advanceFrame = (entities, events, dt, map) => {
   const byId = new Map(nextEntities.map((entity) => [entity.id, entity]))
   const firstOrder = (unit) => nextEvents.find((event) => event.unitId === unit.id)
   const finish = (event) => (nextEvents = removeOrder(nextEvents, event.id))
+
+  // стройка идет сама: за buildTime секунд progress доходит от 0 до 1
+  nextEntities.filter((entity) => isBuilding(entity) && !isBuilt(entity)).forEach((building) => {
+    building.progress = Math.min(1, building.progress + dt / typeOf(building).buildTime)
+  })
 
   // Устанавливаем актуальный приказ. Недействительные цели пропускаем,
   // чтобы они не блокировали следующие события в очереди.

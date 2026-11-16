@@ -8,24 +8,25 @@ export const KINDS = { UNIT: 'unit', BUILDING: 'building' }
 
 // водным типам пока заданы базовые боевые характеристики медленного персонажа
 export const UNIT_TYPES = {
-  slow: { name: 'Медленный', maxHp: 120, attack: 18, attackSpeed: 1, speed: 1.5, size: 0.8, color: '#3d6fb8', terrain: TERRAIN_TYPES.LAND },
-  fast: { name: 'Быстрый', maxHp: 75, attack: 11, attackSpeed: 2, speed: 3, size: 0.8, color: '#b8432f', terrain: TERRAIN_TYPES.LAND },
-  swimmer: { name: 'Пловец', maxHp: 120, attack: 18, attackSpeed: 1, speed: 2, size: 0.8, color: '#e0c55a', terrain: TERRAIN_TYPES.WATER },
-  boat: { name: 'Лодка', maxHp: 120, attack: 18, attackSpeed: 1, speed: 3, size: 0.8, color: '#d6ac6a', terrain: TERRAIN_TYPES.WATER, ship: true },
-  ship: { name: 'Корабль', maxHp: 120, attack: 18, attackSpeed: 1, speed: 2, size: 1.6, color: '#bd8050', terrain: TERRAIN_TYPES.WATER, ship: true },
-  largeShip: { name: 'Большой корабль', maxHp: 120, attack: 18, attackSpeed: 1, speed: 1.5, size: 2.4, color: '#926347', terrain: TERRAIN_TYPES.WATER, ship: true },
+  slow: { name: 'Оборотень', maxHp: 120, attack: 18, attackSpeed: 1, speed: 1.5, size: 0.8, color: '#3d6fb8', terrain: TERRAIN_TYPES.LAND },
+  fast: { name: 'Вампир', maxHp: 75, attack: 11, attackSpeed: 2, speed: 7, size: 0.8, color: '#b8432f', terrain: TERRAIN_TYPES.LAND },
+  swimmer: { name: 'Ловец', maxHp: 120, attack: 18, attackSpeed: 1, speed: 2, size: 0.8, color: '#e0c55a', terrain: TERRAIN_TYPES.WATER },
+  boat: { name: 'Каноэ', maxHp: 120, attack: 18, attackSpeed: 1, speed: 3, size: 0.8, color: '#d6ac6a', terrain: TERRAIN_TYPES.WATER, ship: true },
+  ship: { name: 'Лодка', maxHp: 120, attack: 18, attackSpeed: 1, speed: 2, size: 1.6, color: '#bd8050', terrain: TERRAIN_TYPES.WATER, ship: true },
+  largeShip: { name: 'Баржа', maxHp: 120, attack: 18, attackSpeed: 1, speed: 1.5, size: 2.4, color: '#926347', terrain: TERRAIN_TYPES.WATER, ship: true },
 }
 
 // здание size x size клеток; порядок здесь = порядок кнопок в панели стройки
 // spawns - тип персонажа или список типов, которые здание создает (нет поля - никого не создает)
 // новым зданиям пока задано базовое здоровье дома
+// height - высота стен в клетках (для объемной картинки), buildTime - секунды стройки
 export const BUILDING_TYPES = {
-  tower: { name: 'Башня', maxHp: 160, size: 1, color: '#6f7d5c' },
-  house: { name: 'Дом', maxHp: 160, size: 2, color: '#8a6d4b' },
-  barracks: { name: 'Казарма', maxHp: 160, size: 3, color: '#6b5b7b', spawns: 'slow' },
-  castle: { name: 'Замок', maxHp: 400, size: 4, color: '#7d7f86', spawns: 'fast' },
-  shipyard: { name: 'Верфь', maxHp: 160, size: 6, color: '#96724e', spawns: ['boat', 'ship', 'largeShip'] },
-  waterBase: { name: 'Водная база', maxHp: 160, size: 3, color: '#438a98', terrain: TERRAIN_TYPES.WATER, spawns: 'swimmer' },
+  tower: { name: 'Вышка', maxHp: 160, size: 1, height: 2.2, buildTime: 2, color: '#6f7d5c' },
+  house: { name: 'Хижина', maxHp: 160, size: 2, height: 1, buildTime: 2, color: '#8a6d4b' },
+  barracks: { name: 'Логово', maxHp: 160, size: 3, height: 1.3, buildTime: 3, color: '#6b5b7b', spawns: 'slow' },
+  castle: { name: 'Особняк', maxHp: 400, size: 4, height: 2.4, buildTime: 5, color: '#7d7f86', spawns: 'fast' },
+  shipyard: { name: 'Лодочный сарай', maxHp: 160, size: 6, height: 0.8, buildTime: 4, color: '#96724e', spawns: ['boat', 'ship', 'largeShip'] },
+  waterBase: { name: 'Пристань', maxHp: 160, size: 3, height: 0.6, buildTime: 3, color: '#438a98', terrain: TERRAIN_TYPES.WATER, spawns: 'swimmer' },
 }
 
 let nextId = 1
@@ -54,6 +55,9 @@ export const typeOf = (entity) => (entity.kind === KINDS.UNIT ? UNIT_TYPES : BUI
 export const isUnit = (entity) => entity.kind === KINDS.UNIT
 
 export const isBuilding = (entity) => entity.kind === KINDS.BUILDING
+
+// здание достроено: у стартовых зданий progress нет, они готовы сразу
+export const isBuilt = (entity) => (entity.progress ?? 1) >= 1
 
 // атаковать можно только живого противника, будь то персонаж или здание
 export const canAttack = (unit, target) =>
