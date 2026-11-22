@@ -6,64 +6,205 @@
     </clipPath>
 
     <!-- трава: плитка 4 x 4 клетки с пятнами, чтобы поле не было одной заливкой -->
-    <pattern id="grass" patternUnits="userSpaceOnUse" width="4" height="4">
-      <rect width="4" height="4" class="map-ground__grass" />
-      <circle v-for="(tuft, index) in GRASS_TUFTS" :key="index" v-bind="tuft" />
+    <pattern
+      id="grass"
+      patternUnits="userSpaceOnUse"
+      width="4"
+      height="4"
+    >
+      <rect
+        width="4"
+        height="4"
+        class="map-ground__grass"
+      />
+      <circle
+        v-for="(tuft, index) in GRASS_TUFTS"
+        :key="index"
+        v-bind="tuft"
+      />
     </pattern>
 
     <!-- вода: волны, плитка медленно едет, поэтому вода живая -->
-    <pattern id="water" patternUnits="userSpaceOnUse" width="3" height="3">
-      <rect width="3" height="3" class="map-ground__water" />
-      <path d="M0 0.8q0.375 -0.3 0.75 0t0.75 0t0.75 0t0.75 0M0 2.3q0.375 -0.3 0.75 0t0.75 0t0.75 0t0.75 0" class="map-ground__wave" />
-      <animateTransform attributeName="patternTransform" type="translate" from="0 0" to="3 0" dur="8s" repeatCount="indefinite" />
+    <pattern
+      id="water"
+      patternUnits="userSpaceOnUse"
+      width="3"
+      height="3"
+    >
+      <rect
+        width="3"
+        height="3"
+        class="map-ground__water"
+      />
+      <path
+        d="M0 0.8q0.375 -0.3 0.75 0t0.75 0t0.75 0t0.75 0M0 2.3q0.375 -0.3 0.75 0t0.75 0t0.75 0t0.75 0"
+        class="map-ground__wave"
+      />
+      <animateTransform
+        attributeName="patternTransform"
+        type="translate"
+        from="0 0"
+        to="3 0"
+        dur="8s"
+        repeatCount="indefinite"
+      />
     </pattern>
 
     <!-- ель: ствол и три яруса хвои, рисуется стоя (см. UPRIGHT) -->
-    <g id="spruce" class="map-ground__spruce">
-      <rect x="-0.08" y="-0.35" width="0.16" height="0.35" class="map-ground__trunk" />
-      <path d="M-0.6 -0.3L0 -1.3L0.6 -0.3Z" class="map-ground__needles" />
-      <path d="M-0.48 -0.9L0 -1.8L0.48 -0.9Z" class="map-ground__needles map-ground__needles--mid" />
-      <path d="M-0.34 -1.45L0 -2.25L0.34 -1.45Z" class="map-ground__needles map-ground__needles--top" />
+    <g
+      id="spruce"
+      class="map-ground__spruce"
+    >
+      <rect
+        x="-0.08"
+        y="-0.35"
+        width="0.16"
+        height="0.35"
+        class="map-ground__trunk"
+      />
+      <path
+        d="M-0.6 -0.3L0 -1.3L0.6 -0.3Z"
+        class="map-ground__needles"
+      />
+      <path
+        d="M-0.48 -0.9L0 -1.8L0.48 -0.9Z"
+        class="map-ground__needles map-ground__needles--mid"
+      />
+      <path
+        d="M-0.34 -1.45L0 -2.25L0.34 -1.45Z"
+        class="map-ground__needles map-ground__needles--top"
+      />
     </g>
 
     <!-- вершина горы: светлый и теневой склоны, снежная шапка -->
-    <g id="peak">
-      <path d="M-0.9 0L-0.05 -1.5L0.15 0Z" class="map-ground__peak" />
-      <path d="M0.15 0L-0.05 -1.5L0.9 0Z" class="map-ground__peak map-ground__peak--shade" />
-      <path d="M-0.05 -1.5L-0.32 -1.02L-0.14 -1.1L-0.02 -0.98L0.1 -1.08L0.24 -1.02Z" class="map-ground__snow" />
+    <g
+      id="peak"
+    >
+      <path
+        d="M-0.9 0L-0.05 -1.5L0.15 0Z"
+        class="map-ground__peak"
+      />
+      <path
+        d="M0.15 0L-0.05 -1.5L0.9 0Z"
+        class="map-ground__peak map-ground__peak--shade"
+      />
+
+      <path
+        d="M-0.05 -1.5L-0.32 -1.02L-0.14 -1.1L-0.02 -0.98L0.1 -1.08L0.24 -1.02Z"
+        class="map-ground__snow"
+      />
     </g>
 
     <!-- мелочь на траве -->
-    <g id="bush">
-      <circle cx="-0.18" cy="-0.16" r="0.2" class="map-ground__bush" />
-      <circle cx="0.16" cy="-0.15" r="0.18" class="map-ground__bush" />
-      <circle cx="0" cy="-0.28" r="0.2" class="map-ground__bush map-ground__bush--light" />
+    <g
+      id="bush"
+    >
+      <circle
+        cx="-0.18"
+        cy="-0.16"
+        r="0.2"
+        class="map-ground__bush"
+      />
+
+      <circle
+        cx="0.16"
+        cy="-0.15"
+        r="0.18"
+        class="map-ground__bush"
+      />
+
+      <circle
+        cx="0"
+        cy="-0.28"
+        r="0.2"
+        class="map-ground__bush map-ground__bush--light"
+      />
     </g>
-    <g id="rock">
-      <path d="M-0.3 0L-0.24 -0.2L-0.05 -0.3L0.2 -0.22L0.3 0Z" class="map-ground__rock" />
-      <path d="M-0.05 -0.3L0.2 -0.22L0.3 0L0.1 0Z" class="map-ground__rock map-ground__rock--shade" />
+
+    <g
+      id="rock"
+    >
+      <path
+        d="M-0.3 0L-0.24 -0.2L-0.05 -0.3L0.2 -0.22L0.3 0Z"
+        class="map-ground__rock"
+      />
+
+      <path
+        d="M-0.05 -0.3L0.2 -0.22L0.3 0L0.1 0Z"
+        class="map-ground__rock map-ground__rock--shade"
+      />
     </g>
-    <g id="stump">
-      <rect x="-0.14" y="-0.22" width="0.28" height="0.22" class="map-ground__trunk" />
-      <ellipse cx="0" cy="-0.22" rx="0.14" ry="0.06" class="map-ground__cut" />
+    <g
+      id="stump"
+    >
+      <rect
+        x="-0.14"
+        y="-0.22"
+        width="0.28"
+        height="0.22"
+        class="map-ground__trunk"
+      />
+      <ellipse
+        cx="0"
+        cy="-0.22"
+        rx="0.14"
+        ry="0.06"
+        class="map-ground__cut"
+      />
     </g>
   </defs>
 
-  <polygon :points="points" fill="url(#grass)" />
-  <g clip-path="url(#map-clip)">
+  <polygon
+    :points="points"
+    fill="url(#grass)"
+  />
+
+  <g
+    clip-path="url(#map-clip)"
+  >
     <!-- берег: узкая илистая полоса по краю воды, на сушу заходит всего на четверть клетки -->
-    <path :d="water" class="map-ground__shore" />
-    <path :d="water" fill="url(#water)" />
-    <path :d="forestFloor" class="map-ground__forest" />
-    <path :d="mountainFloor" class="map-ground__mountain" />
-    <path :d="grid" class="map-ground__grid" />
+    <path
+      :d="water"
+      class="map-ground__shore"
+    />
+    <path
+      :d="water"
+      fill="url(#water)"
+    />
+    <path
+      :d="forestFloor"
+      class="map-ground__forest"
+    />
+    <path
+      :d="mountainFloor"
+      class="map-ground__mountain"
+    />
+    <path
+      :d="grid"
+      class="map-ground__grid"
+    />
   </g>
-  <polygon :points="points" class="map-ground__edge" />
-  <line v-bind="axisX" class="map-ground__axis map-ground__axis--x" />
-  <line v-bind="axisY" class="map-ground__axis map-ground__axis--y" />
+
+  <polygon
+    :points="points"
+    class="map-ground__edge"
+  />
+  <line
+    v-bind="axisX"
+    class="map-ground__axis map-ground__axis--x"
+  />
+  <line
+    v-bind="axisY"
+    class="map-ground__axis map-ground__axis--y"
+  />
 
   <!-- кусты и камни, лес вокруг карты и рощи на ней: только картинка -->
-  <use v-for="(item, index) in scenery" :key="index" v-bind="item" class="map-ground__tree" />
+  <use
+    v-for="(item, index) in scenery"
+    :key="index"
+    v-bind="item"
+    class="map-ground__tree"
+  />
 </template>
 
 <script setup>

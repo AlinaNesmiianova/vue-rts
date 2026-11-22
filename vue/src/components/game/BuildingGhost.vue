@@ -1,9 +1,24 @@
 <template>
   <!-- здание, которое сейчас ставим: зеленое - место свободно, красное - нельзя -->
-  <g v-if="visible" class="building-ghost" :class="stateClass">
-    <polygon v-if="hull" :points="hull" />
-    <rect v-if="dock" v-bind="dock" class="building-ghost__dock" />
-    <rect v-for="(rect, index) in rects" :key="index" v-bind="rect" />
+  <g
+    v-if="visible"
+    class="building-ghost"
+    :class="stateClass"
+  >
+    <polygon
+      v-if="hull"
+      :points="hull"
+    />
+    <rect
+      v-if="dock"
+      v-bind="dock"
+      class="building-ghost__dock"
+    />
+    <rect
+      v-for="(rect, index) in rects"
+      :key="index"
+      v-bind="rect"
+    />
   </g>
 </template>
 

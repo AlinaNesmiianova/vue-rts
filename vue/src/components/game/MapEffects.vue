@@ -2,13 +2,28 @@
   <!-- эффекты поверх объектов, в координатах мира; на игру не влияют, только картинка -->
   <g class="map-effects">
     <!-- удары: штрихи летят от атакующего к цели, пока он бьет -->
-    <line v-for="strike in strikes" :key="strike.id" v-bind="strike.line" class="map-effects__strike" />
+    <line
+      v-for="strike in strikes"
+      :key="strike.id"
+      v-bind="strike.line"
+      class="map-effects__strike"
+    />
 
     <!-- погибшие: вспышка цвета группы, расходится и гаснет -->
-    <circle v-for="death in deaths" :key="death.id" v-bind="death.circle" class="map-effects__death" />
+    <circle
+      v-for="death in deaths"
+      :key="death.id"
+      v-bind="death.circle"
+      class="map-effects__death"
+    />
 
     <!-- куда отдан приказ: расходящееся кольцо, красное - атака -->
-    <circle v-for="marker in markers" :key="marker.id" v-bind="marker.circle" class="map-effects__marker" />
+    <circle
+      v-for="marker in markers"
+      :key="marker.id"
+      v-bind="marker.circle"
+      class="map-effects__marker"
+    />
   </g>
 </template>
 

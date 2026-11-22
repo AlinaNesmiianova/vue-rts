@@ -10,14 +10,31 @@
     @mouseleave="onMouseLeave"
   >
     <!-- все внутри рисуется в координатах мира, матрица камеры делает из квадратов ромбы -->
-    <g :transform="matrix">
-      <MapGround :map="map" />
+    <g
+      :transform="matrix"
+    >
+      <MapGround
+        :map="map"
+      />
       <!-- здания и персонажи одним списком по глубине: ближние перекрывают дальние -->
       <!-- во время стройки объекты не ловят клики: клик ставит здание, а не выбирает -->
-      <g :class="objectsClass">
-        <template v-for="item in objects" :key="item.entity.id">
-          <MapBuilding v-if="item.building" :building="item.entity" :actions="actions" />
-          <MapUnit v-else :unit="item.entity" :actions="actions" />
+      <g
+        :class="objectsClass"
+      >
+        <template
+          v-for="item in objects"
+          :key="item.entity.id"
+        >
+          <MapBuilding
+            v-if="item.building"
+            :building="item.entity"
+            :actions="actions"
+          />
+          <MapUnit
+            v-else
+            :unit="item.entity"
+            :actions="actions"
+          />
         </template>
       </g>
       <MapEffects />
@@ -27,16 +44,52 @@
 
     <!-- HP рисуется в экранных координатах, чтобы шкала не искажалась изометрией -->
     <!-- полоска видна у выбранных и раненых, чтобы не загромождать поле -->
-    <g v-for="bar in healthBars" :key="bar.id" class="game-field__health" :transform="bar.transform">
-      <rect x="-21" y="-3" width="42" height="7" rx="2" class="game-field__health-back" />
-      <rect x="-20" y="-2" :width="bar.width" height="5" rx="1" :fill="bar.color" />
+    <g
+      v-for="bar in healthBars"
+      :key="bar.id"
+      class="game-field__health"
+      :transform="bar.transform"
+    >
+      <rect
+        x="-21"
+        y="-3"
+        width="42"
+        height="7"
+        rx="2"
+        class="game-field__health-back"
+      />
+      <rect
+        x="-20"
+        y="-2"
+        :width="bar.width"
+        height="5"
+        rx="1"
+        :fill="bar.color"
+      />
     </g>
 
-    <circle :cx="center.x" :cy="center.y" r="4" class="game-field__center" />
-    <text v-for="label in labels" :key="label.text" :x="label.x" :y="label.y" class="game-field__label">{{ label.text }}</text>
+    <circle
+      :cx="center.x"
+      :cy="center.y"
+      r="4"
+      class="game-field__center"
+    />
+    <text
+      v-for="label in labels"
+      :key="label.text"
+      :x="label.x"
+      :y="label.y"
+      class="game-field__label"
+    >
+      {{ label.text }}
+    </text>
 
     <!-- рамка выделения, рисуется в точках экрана -->
-    <rect v-if="box" v-bind="box" class="game-field__box" />
+    <rect
+      v-if="box"
+      v-bind="box"
+      class="game-field__box"
+    />
   </svg>
 </template>
 
