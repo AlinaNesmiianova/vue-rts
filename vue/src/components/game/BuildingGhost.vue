@@ -5,10 +5,7 @@
     class="building-ghost"
     :class="stateClass"
   >
-    <polygon
-      v-if="hull"
-      :points="hull"
-    />
+    <polygon v-if="hull" :points="hull" />
     <rect
       v-if="dock"
       v-bind="dock"
