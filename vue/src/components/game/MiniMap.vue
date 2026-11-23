@@ -3,13 +3,36 @@
   <div class="mini-map">
     <svg class="mini-map__svg" :viewBox="viewBox" @mousedown.left="onPointer" @mousemove="onDrag">
       <!-- та же изометрия, что у камеры, только без сдвига и масштаба -->
-      <g ref="world" transform="matrix(1 0.5 -1 0.5 0 0)">
-        <polygon :points="outline" class="mini-map__ground" />
-        <path :d="water" class="mini-map__water" />
-        <path :d="forest" class="mini-map__forest" />
-        <path :d="mountain" class="mini-map__mountain" />
-        <rect v-for="dot in dots" :key="dot.id" v-bind="dot.rect" :fill="dot.color" />
-        <polygon :points="frame" class="mini-map__frame" />
+      <g
+        ref="world"
+        transform="matrix(1 0.5 -1 0.5 0 0)"
+      >
+        <polygon
+          :points="outline"
+          class="mini-map__ground"
+        />
+        <path
+          :d="water"
+          class="mini-map__water"
+        />
+        <path
+          :d="forest"
+          class="mini-map__forest"
+        />
+        <path
+          :d="mountain"
+          class="mini-map__mountain"
+        />
+        <rect
+          v-for="dot in dots"
+          :key="dot.id"
+          v-bind="dot.rect"
+          :fill="dot.color"
+        />
+        <polygon
+          :points="frame"
+          class="mini-map__frame"
+        />
       </g>
     </svg>
   </div>

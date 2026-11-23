@@ -7,17 +7,39 @@
     @mousedown.left.exact.stop="onSelect"
     @mousedown.left.shift.exact.stop="onToggle"
   >
-    <rect v-if="dock" v-bind="dock" class="map-building__dock" />
-    <polygon v-for="(face, index) in faces" :key="index" v-bind="face" />
+    <rect
+      v-if="dock"
+      v-bind="dock"
+      class="map-building__dock"
+    />
+    <polygon
+      v-for="(face, index) in faces"
+      :key="index"
+      v-bind="face"
+    />
 
     <template v-if="look.flag">
-      <line v-bind="look.flag.pole" class="map-building__pole" />
-      <polygon :points="look.flag.cloth" class="map-building__flag" />
+      <line
+        v-bind="look.flag.pole"
+        class="map-building__pole"
+      />
+      <polygon
+        :points="look.flag.cloth"
+        class="map-building__flag"
+      />
     </template>
 
     <!-- дым из трубы, при повреждениях - черный дым и огонь -->
-    <circle v-for="puff in smoke" :key="puff.key" v-bind="puff" />
-    <circle v-for="flame in fire" :key="flame.key" v-bind="flame" />
+    <circle
+      v-for="puff in smoke"
+      :key="puff.key"
+      v-bind="puff"
+    />
+    <circle
+      v-for="flame in fire"
+      :key="flame.key"
+      v-bind="flame"
+    />
   </g>
 </template>
 

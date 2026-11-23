@@ -1,14 +1,35 @@
 <template>
   <!-- маршрут и будущие точки видны только у выбранного персонажа -->
   <template v-if="selected">
-    <polyline v-if="route" :points="route" class="map-unit__route" />
-    <circle v-for="(point, index) in waypoints" :key="index" :cx="point.x" :cy="point.y" r="0.23" class="map-unit__waypoint" />
+    <polyline
+      v-if="route"
+      :points="route"
+      class="map-unit__route"
+    />
+
+    <circle
+      v-for="(point, index) in waypoints"
+      :key="index"
+      :cx="point.x"
+      :cy="point.y"
+      r="0.23"
+      class="map-unit__waypoint"
+    />
 
     <!-- красный пунктир - активный приказ атаки -->
-    <line v-if="attackLine" v-bind="attackLine" class="map-unit__attack-line" />
+    <line
+      v-if="attackLine"
+      v-bind="attackLine"
+      class="map-unit__attack-line"
+    />
 
     <!-- куда идет выбранный: квадрат в конце пути -->
-    <rect v-if="finishBox" v-bind="finishBox" class="map-unit__target" />
+    <rect
+      v-if="finishBox"
+      v-bind="finishBox"
+      class="map-unit__target"
+    />
+
   </template>
 
   <!-- персонаж - стоячая фигурка, корабль - корпус, вписанный в круг столкновений -->
@@ -19,12 +40,28 @@
     @mousedown.left.exact.stop="onSelect"
     @mousedown.left.shift.exact.stop="onToggle"
   >
-    <polygon v-if="hull" :points="hull" class="map-unit__hull" />
-    <g v-else :transform="place">
+    <polygon
+      v-if="hull"
+      :points="hull"
+      class="map-unit__hull"
+    />
+
+    <g
+      v-else
+      :transform="place"
+    >
       <!-- поворот к цели, затем анимация позы: transform у этих групп не пересекается -->
       <g :transform="facing">
-        <g class="map-unit__pose" :class="pose">
-          <component :is="shape.tag" v-for="(shape, index) in figure" :key="index" v-bind="shape" />
+        <g
+          class="map-unit__pose"
+          :class="pose"
+        >
+          <component
+            :is="shape.tag"
+            v-for="(shape, index) in figure"
+            :key="index"
+            v-bind="shape"
+          />
         </g>
       </g>
     </g>
