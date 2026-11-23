@@ -19,14 +19,8 @@
     />
 
     <template v-if="look.flag">
-      <line
-        v-bind="look.flag.pole"
-        class="map-building__pole"
-      />
-      <polygon
-        :points="look.flag.cloth"
-        class="map-building__flag"
-      />
+      <line v-bind="look.flag.pole" class="map-building__pole" />
+      <polygon :points="look.flag.cloth" class="map-building__flag" />
     </template>
 
     <!-- дым из трубы, при повреждениях - черный дым и огонь -->

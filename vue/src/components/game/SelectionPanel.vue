@@ -28,7 +28,11 @@
         </div>
       </div>
       <template v-else>
-        <div v-for="spawn in spawnOptions" :key="spawn.type" class="selection-panel__actions">
+        <div
+          v-for="spawn in spawnOptions"
+          :key="spawn.type"
+          class="selection-panel__actions"
+        >
           <span>Создать: {{ spawn.name }}</span>
           <button
             v-for="count in SPAWN_COUNTS"
@@ -43,7 +47,12 @@
 
       <div v-if="entityIsUnit" class="selection-panel__actions">
         <span>{{ orderStatus }} · Команд: {{ orders.length }}</span>
-        <button v-if="canSelfDestruct" type="button" class="selection-panel__destroy" @click="onSelfDestruct">
+        <button
+          v-if="canSelfDestruct"
+          type="button"
+          class="selection-panel__destroy"
+          @click="onSelfDestruct"
+        >
           Самоуничтожение
         </button>
       </div>

@@ -46,16 +46,10 @@
       class="map-unit__hull"
     />
 
-    <g
-      v-else
-      :transform="place"
-    >
+    <g v-else :transform="place">
       <!-- поворот к цели, затем анимация позы: transform у этих групп не пересекается -->
       <g :transform="facing">
-        <g
-          class="map-unit__pose"
-          :class="pose"
-        >
+        <g class="map-unit__pose" :class="pose">
           <component
             :is="shape.tag"
             v-for="(shape, index) in figure"

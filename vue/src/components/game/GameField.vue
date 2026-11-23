@@ -10,21 +10,12 @@
     @mouseleave="onMouseLeave"
   >
     <!-- все внутри рисуется в координатах мира, матрица камеры делает из квадратов ромбы -->
-    <g
-      :transform="matrix"
-    >
-      <MapGround
-        :map="map"
-      />
+    <g :transform="matrix">
+      <MapGround :map="map" />
       <!-- здания и персонажи одним списком по глубине: ближние перекрывают дальние -->
       <!-- во время стройки объекты не ловят клики: клик ставит здание, а не выбирает -->
-      <g
-        :class="objectsClass"
-      >
-        <template
-          v-for="item in objects"
-          :key="item.entity.id"
-        >
+      <g :class="objectsClass">
+        <template v-for="item in objects" :key="item.entity.id">
           <MapBuilding
             v-if="item.building"
             :building="item.entity"

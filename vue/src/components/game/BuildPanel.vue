@@ -15,10 +15,7 @@
     </select>
 
     <!-- кнопки по разделам: здания и лодки; повторное нажатие отменяет стройку -->
-    <template
-      v-for="section in sections"
-      :key="section.title"
-    >
+    <template v-for="section in sections" :key="section.title">
       <div class="build-panel__title">{{ section.title }}</div>
       <button
         v-for="item in section.items"
@@ -31,28 +28,16 @@
         @click="onBuildClick(item.key)"
       >
         <!-- значок цвета выбранного клана: кубик здания или корпус лодки -->
-        <svg
-          class="build-panel__icon"
-          viewBox="0 0 20 20"
-        >
+        <svg class="build-panel__icon" viewBox="0 0 20 20">
           <polygon
             v-if="item.ship"
             points="1,10 5,6 15,6 19,10 15,14 5,14"
             class="build-panel__icon-roof"
           />
           <template v-else>
-            <polygon
-              points="2,7 10,11 10,18 2,14"
-              class="build-panel__icon-left"
-            />
-            <polygon
-              points="18,7 10,11 10,18 18,14"
-              class="build-panel__icon-right"
-            />
-            <polygon
-              points="10,3 18,7 10,11 2,7"
-              class="build-panel__icon-roof"
-            />
+            <polygon points="2,7 10,11 10,18 2,14" class="build-panel__icon-left" />
+            <polygon points="18,7 10,11 10,18 18,14" class="build-panel__icon-right" />
+            <polygon points="10,3 18,7 10,11 2,7" class="build-panel__icon-roof" />
           </template>
         </svg>
         <span class="build-panel__name">{{ item.name }}</span>

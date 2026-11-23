@@ -9,7 +9,12 @@
         <RouterLink class="game-page__exit" :to="{ name: $routes.INDEX }">Выход</RouterLink>
       </div>
       <div class="game-page__controls">
-        <button type="button" class="game-page__primary" :disabled="finished" @click="togglePause">{{ pauseLabel }}</button>
+        <button
+          type="button"
+          class="game-page__primary"
+          :disabled="finished"
+          @click="togglePause"
+        >{{ pauseLabel }}</button>
         <button type="button" @click="restart">Заново</button>
       </div>
       <div class="game-page__info">
@@ -19,11 +24,21 @@
       <div class="game-page__divider"></div>
       <div class="game-page__header">
         <div class="game-page__title">Кланы</div>
-        <button type="button" class="game-page__add" :disabled="finished" @click="addGroup">+ Клан</button>
+        <button
+          type="button"
+          class="game-page__add"
+          :disabled="finished"
+          @click="addGroup"
+        >+ Клан</button>
       </div>
       <!-- кланов может быть сколько угодно: длинный список прокручивается -->
       <div class="game-page__groups">
-        <div v-for="row in groupRows" :key="row.id" class="game-page__group" :class="row.classes">
+        <div
+          v-for="row in groupRows"
+          :key="row.id"
+          class="game-page__group"
+          :class="row.classes"
+        >
           <i class="game-page__dot" :style="row.dotStyle"></i>
           <span>{{ row.name }}</span>
           <span class="game-page__count">{{ row.units }} бойц. · {{ row.buildings }} зд.</span>
@@ -38,7 +53,11 @@
         Победил {{ winner.name }}
       </div>
       <div v-else class="game-page__winner">Ничья — все кланы уничтожены</div>
-      <button type="button" class="game-page__primary" @click="restart">Играть заново</button>
+      <button
+        type="button"
+        class="game-page__primary"
+        @click="restart"
+      >Играть заново</button>
     </div>
 
     <!-- луна над лесом, только украшение -->
