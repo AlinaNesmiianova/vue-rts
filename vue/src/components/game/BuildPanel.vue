@@ -14,6 +14,17 @@
       >{{ group.name }}</option>
     </select>
 
+    <!-- запас выбранного клана: на него строят и меняют на рынке -->
+    <div class="build-panel__stock">
+      <span
+        v-for="row in stock"
+        :key="row.key"
+        class="build-panel__resource"
+        :class="row.classes"
+        :title="row.name"
+      >{{ row.amount }}</span>
+    </div>
+
     <!-- кнопки по разделам: здания и лодки; повторное нажатие отменяет стройку -->
     <template v-for="section in sections" :key="section.title">
       <div class="build-panel__title">{{ section.title }}</div>
@@ -57,6 +68,7 @@ import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { BUILDING_TYPES, UNIT_TYPES } from '@/game/entities'
 import { colorOf } from '@/game/groups'
+import { stockRows } from '@/game/resources'
 import { PHASES } from '@/store/game'
 
 const props = defineProps({
@@ -69,6 +81,10 @@ const buildGroupId = computed(() => store.state.game.buildGroupId)
 const buildGroup = computed(() => store.getters['game/getGroup'](buildGroupId.value))
 const finished = computed(() => store.state.game.phase === PHASES.FINISHED)
 const placement = computed(() => store.getters['game/getPlacement'])
+const stock = computed(() => stockRows(buildGroup.value?.resources).map((row) => ({
+  ...row,
+  classes: `build-panel__resource--${row.key}`,
+})))
 
 const toItem = (key, type) => ({
   key,
@@ -112,6 +128,18 @@ const onBuildClick = (key) => props.actions.startPlacement(key)
 
   &__group {
     @include ui.button;
+  }
+
+  &__stock {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 6px;
+    font-size: 12px;
+  }
+
+  // название ресурса во всплывающей подсказке, на панели только точка и число
+  &__resource {
+    @include ui.resource-dot;
   }
 
   &__item {

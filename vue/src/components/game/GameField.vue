@@ -12,21 +12,16 @@
     <!-- все внутри рисуется в координатах мира, матрица камеры делает из квадратов ромбы -->
     <g :transform="matrix">
       <MapGround :map="map" />
-      <!-- здания и персонажи одним списком по глубине: ближние перекрывают дальние -->
+      <!-- здания, ресурсы и персонажи одним списком по глубине: ближние перекрывают дальние -->
       <!-- во время стройки объекты не ловят клики: клик ставит здание, а не выбирает -->
       <g :class="objectsClass">
-        <template v-for="item in objects" :key="item.entity.id">
-          <MapBuilding
-            v-if="item.building"
-            :building="item.entity"
-            :actions="actions"
-          />
-          <MapUnit
-            v-else
-            :unit="item.entity"
-            :actions="actions"
-          />
-        </template>
+        <component
+          :is="item.component"
+          v-for="item in objects"
+          :key="item.entity.id"
+          v-bind="item.props"
+          :actions="actions"
+        />
       </g>
       <MapEffects />
       <MapFog />
@@ -88,13 +83,16 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
 import { clamp, screenToWorld } from '@/game/camera'
-import { BUILDING_TYPES, canAttack, entityAtPoint, isBuilding, typeOf } from '@/game/entities'
+import {
+  BUILDING_TYPES, canAttack, entityAtPoint, isBuilding, isResource, KINDS, typeOf,
+} from '@/game/entities'
 import { isClick, toRect } from '@/game/selection'
 import { buildingTop, rectOf } from '@/game/visuals'
 import { useGameLoop } from '@/composables/useGameLoop'
 import { useKeyboard } from '@/composables/useKeyboard'
 import MapGround from './MapGround.vue'
 import MapBuilding from './MapBuilding.vue'
+import MapResource from './MapResource.vue'
 import MapUnit from './MapUnit.vue'
 import BuildingGhost from './BuildingGhost.vue'
 import MapEffects from './MapEffects.vue'
@@ -117,7 +115,16 @@ const { isPressed } = useKeyboard()
 const drag = ref(null) // рамка выделения: { from, to, add }, пока зажата ЛКМ
 
 const map = computed(() => store.getters['game/getMap'])
-const objects = computed(() => store.getters['game/getObjects'].map((entity) => ({ entity, building: isBuilding(entity) })))
+// каким компонентом рисовать объект и под каким именем передать его в props
+const VIEWS = {
+  [KINDS.BUILDING]: { component: MapBuilding, prop: 'building' },
+  [KINDS.RESOURCE]: { component: MapResource, prop: 'resource' },
+  [KINDS.UNIT]: { component: MapUnit, prop: 'unit' },
+}
+const objects = computed(() => store.getters['game/getObjects'].map((entity) => {
+  const view = VIEWS[entity.kind]
+  return { entity, component: view.component, props: { [view.prop]: entity } }
+}))
 const toScreen = (point) => store.getters['game/toScreen'](point)
 const groupColor = (id) => store.getters['game/getGroup'](id)?.color ?? '#999999'
 const matrix = computed(() => store.getters['game/getCameraMatrix'])
@@ -143,8 +150,13 @@ const healthTop = (entity) => {
     : UNIT_HEIGHT
   return toScreen({ x: entity.x - lift, y: entity.y - lift }).y - HP_OFFSET
 }
+// у ресурсов здоровья нет, вместо него запас - он виден в панели выбора
+const showHealth = (entity) => {
+  if (isResource(entity)) return false
+  return entity.hp < typeOf(entity).maxHp || store.getters['game/isSelected'](entity.id)
+}
 const healthBars = computed(() => store.state.game.entities
-  .filter((entity) => entity.hp < typeOf(entity).maxHp || store.getters['game/isSelected'](entity.id))
+  .filter(showHealth)
   .map((entity) => ({
     id: entity.id,
     transform: `translate(${toScreen(entity).x}, ${healthTop(entity)})`,

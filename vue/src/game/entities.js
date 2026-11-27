@@ -3,8 +3,9 @@
 // size - сторона квадрата в клетках (на экране ромб), скорость считается в клетках в секунду
 
 import { TERRAIN_TYPES } from './map.js'
+import { RESOURCE_TYPES } from './resources.js'
 
-export const KINDS = { UNIT: 'unit', BUILDING: 'building' }
+export const KINDS = { UNIT: 'unit', BUILDING: 'building', RESOURCE: 'resource' }
 
 // водным типам пока заданы базовые боевые характеристики медленного персонажа
 export const UNIT_TYPES = {
@@ -20,11 +21,19 @@ export const UNIT_TYPES = {
 // spawns - тип персонажа или список типов, которые здание создает (нет поля - никого не создает)
 // новым зданиям пока задано базовое здоровье дома
 // height - высота стен в клетках (для объемной картинки), buildTime - секунды стройки
+// stores - склад: сюда сдают добычу
 export const BUILDING_TYPES = {
   tower: { name: 'Вышка', maxHp: 160, size: 1, height: 2.2, buildTime: 2, color: '#6f7d5c' },
   house: { name: 'Хижина', maxHp: 160, size: 2, height: 1, buildTime: 2, color: '#8a6d4b' },
+  storage: {
+    name: 'Амбар', maxHp: 200, size: 3, height: 1.2, buildTime: 3, color: '#8a7048',
+    stores: true,
+  },
   barracks: { name: 'Логово', maxHp: 160, size: 3, height: 1.3, buildTime: 3, color: '#6b5b7b', spawns: 'slow' },
-  castle: { name: 'Особняк', maxHp: 400, size: 4, height: 2.4, buildTime: 5, color: '#7d7f86', spawns: 'fast' },
+  castle: {
+    name: 'Особняк', maxHp: 400, size: 4, height: 2.4, buildTime: 5, color: '#7d7f86',
+    spawns: 'fast', stores: true,
+  },
   shipyard: { name: 'Лодочный сарай', maxHp: 160, size: 6, height: 0.8, buildTime: 4, color: '#96724e', spawns: ['boat', 'ship', 'largeShip'] },
   waterBase: { name: 'Пристань', maxHp: 160, size: 3, height: 0.6, buildTime: 3, color: '#438a98', terrain: TERRAIN_TYPES.WATER, spawns: 'swimmer' },
 }
@@ -45,19 +54,50 @@ export const createBuilding = (type, x, y, groupId = 'group1', direction = 'east
   hp: BUILDING_TYPES[type].maxHp,
 })
 
+// объект с ресурсом ничей: groupId нет, вместо здоровья запас amount
+export const createResource = (type, x, y) => ({
+  id: nextId++, kind: KINDS.RESOURCE, type, groupId: null, x, y,
+  amount: RESOURCE_TYPES[type].amount,
+})
+
 // корпус вписан в круг, который используется при проверке столкновений
 export const shipPoints = (x, y, size) => [
   [0.5, 0], [0.25, 0.3], [-0.35, 0.3], [-0.45, 0], [-0.35, -0.3], [0.25, -0.3],
 ].map(([dx, dy]) => `${x + dx * size},${y + dy * size}`).join(' ')
 
-export const typeOf = (entity) => (entity.kind === KINDS.UNIT ? UNIT_TYPES : BUILDING_TYPES)[entity.type]
+const TYPES = {
+  [KINDS.UNIT]: UNIT_TYPES,
+  [KINDS.BUILDING]: BUILDING_TYPES,
+  [KINDS.RESOURCE]: RESOURCE_TYPES,
+}
+
+export const typeOf = (entity) => TYPES[entity.kind][entity.type]
 
 export const isUnit = (entity) => entity.kind === KINDS.UNIT
 
 export const isBuilding = (entity) => entity.kind === KINDS.BUILDING
 
+export const isResource = (entity) => entity.kind === KINDS.RESOURCE
+
+// мешает пройти: живой персонаж или здание, а также ресурс, пока он не выработан
+export const isObstacle = (entity) => entity.hp > 0 || isResource(entity)
+
 // здание достроено: у стартовых зданий progress нет, они готовы сразу
 export const isBuilt = (entity) => (entity.progress ?? 1) >= 1
+
+// ближайший к точке достроенный склад клана: туда добытчик несет ресурсы
+const isStorage = (entity, groupId) =>
+  isBuilding(entity) &&
+  entity.groupId === groupId &&
+  !!BUILDING_TYPES[entity.type].stores &&
+  isBuilt(entity)
+
+export const nearestStorage = (entities, groupId, point) => {
+  const distance = (entity) => Math.hypot(entity.x - point.x, entity.y - point.y)
+  return entities
+    .filter((entity) => isStorage(entity, groupId))
+    .sort((a, b) => distance(a) - distance(b))[0] ?? null
+}
 
 // атаковать можно только живого противника, будь то персонаж или здание
 export const canAttack = (unit, target) =>
@@ -77,7 +117,8 @@ const containsEntity = (entity, point, padding) => {
 export const entityAtPoint = (entities, point) => {
   const units = entities.filter((entity) => entity.hp > 0 && isUnit(entity)).sort(byDepth).reverse()
   const buildings = entities.filter((entity) => entity.hp > 0 && isBuilding(entity)).sort(byDepth).reverse()
-  const visible = [...units, ...buildings]
+  const resources = entities.filter(isResource).sort(byDepth).reverse()
+  const visible = [...units, ...buildings, ...resources]
   return visible.find((entity) => containsEntity(entity, point, 0))
     ?? visible.find((entity) => containsEntity(entity, point, HIT_PADDING))
     ?? null

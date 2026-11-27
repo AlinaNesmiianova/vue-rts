@@ -1,5 +1,5 @@
 // множественное выделение: рамка на экране и строй, в который встает группа
-import { isBuilding, isUnit, UNIT_TYPES } from './entities.js'
+import { isUnit, UNIT_TYPES } from './entities.js'
 import { canUseUnitTerrain, isClearOfEntity } from './placement.js'
 
 // рамка меньше этого (в пикселях) - это не рамка, а просто клик
@@ -23,9 +23,9 @@ export const insideRect = (rect, p) => p.x >= rect.minX && p.x <= rect.maxX && p
 // shift + клик: был выбран - убираем, не был - добавляем
 export const toggleId = (ids, id) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id])
 
-// точка не в здании (с запасом на радиус персонажа)
+// точка не в здании и не в объекте ресурса (с запасом на радиус персонажа)
 const isFreeOfBuildings = (entities, p, radius, unitType) =>
-  entities.filter(isBuilding).every((b) => isClearOfEntity(p, radius, b, unitType))
+  entities.filter((e) => !isUnit(e)).every((b) => isClearOfEntity(p, radius, b, unitType))
 
 // где персонаж будет стоять: идущий - в конце пути, стоящий - там, где он сейчас
 const restPoint = (unit) => unit.path[unit.path.length - 1] ?? unit.target ?? unit

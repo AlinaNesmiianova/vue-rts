@@ -1,5 +1,5 @@
 // обход объектов: ищем путь по клеткам (A*), потом срезаем лишние повороты
-import { stepToTarget, typeOf } from './entities.js'
+import { isObstacle, stepToTarget, typeOf } from './entities.js'
 import { canPlaceUnit, canUseUnitTerrain, isSegmentClear } from './placement.js'
 
 // 8 соседей клетки: 4 по сторонам и 4 по диагонали
@@ -219,7 +219,10 @@ export const advanceUnit = (map, entities, unit, dt) => {
     const distance = Math.hypot(unit.target.x - unit.x, unit.target.y - unit.y)
     const next = stepToTarget(unit, remaining)
     const type = typeOf(unit)
-    const clear = entities.every((entity) => entity.id === unit.id || entity.hp <= 0 || isSegmentClear(unit, next, type.size / 2, entity, type))
+    const clear = entities.every((entity) =>
+      entity.id === unit.id ||
+      !isObstacle(entity) ||
+      isSegmentClear(unit, next, type.size / 2, entity, type))
     if (clear && canUseUnitTerrain(map, entities, type, next)) {
       Object.assign(unit, next)
       remaining = Math.max(0, remaining - distance / type.speed)
@@ -227,7 +230,7 @@ export const advanceUnit = (map, entities, unit, dt) => {
       if (!unit.repathDelay) {
         unit.repathDelay = REPATH_DELAY
         const finish = unit.path[unit.path.length - 1] ?? unit.target
-        const path = findPath(map, entities.filter((entity) => entity.hp > 0), unit, finish, type.size / 2)
+        const path = findPath(map, entities.filter(isObstacle), unit, finish, type.size / 2)
         const last = path[path.length - 1]
         // неполный обход не заменяет цель: в плотной группе ждем, пока соседи пройдут
         if (last && Math.hypot(last.x - finish.x, last.y - finish.y) < 1e-9) {

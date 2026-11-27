@@ -154,8 +154,10 @@ test('все готовые сценарии автоматически доиг
     for (let i = 0; i < 3000 && state.phase !== PHASES.FINISHED; i++) commit(MUTATIONS.TICK, 0.1)
     assert.equal(state.phase, PHASES.FINISHED, `${groupCount} кланов`)
     assert.ok(state.winnerGroupId)
-    assert.equal(new Set(state.entities.map((entity) => entity.groupId)).size, 1)
-    assert.ok(state.entities.every((entity) => entity.groupId === state.winnerGroupId))
+    // ресурсы ничьи, на победителя не влияют
+    const owned = state.entities.filter((entity) => entity.kind !== 'resource')
+    assert.equal(new Set(owned.map((entity) => entity.groupId)).size, 1)
+    assert.ok(owned.every((entity) => entity.groupId === state.winnerGroupId))
   }
 })
 

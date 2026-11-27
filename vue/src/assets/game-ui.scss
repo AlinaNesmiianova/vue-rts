@@ -8,6 +8,33 @@ $border: #4f5e69;
 $accent: #7fd1c1;
 $danger: #c8584f;
 
+// цвета ресурсов: дерево, камень, руда, золото
+$resources: (
+  wood: #5f9a5a,
+  stone: #a7adb4,
+  ore: #c0704a,
+  gold: #ffd35a,
+);
+
+// цветная точка перед числом ресурса; модификатор --wood, --gold и т.д. выбирает цвет
+@mixin resource-dot {
+  &::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    border-radius: 50%;
+    background: var(--resource);
+  }
+
+  @each $name, $color in $resources {
+    &--#{$name} {
+      --resource: #{$color};
+    }
+  }
+}
+
 @mixin panel {
   border: 2px solid $border;
   border-radius: 6px;

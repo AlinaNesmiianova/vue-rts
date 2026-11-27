@@ -1,4 +1,6 @@
-import { canAttack, isBuilding, isUnit, stepToTarget, typeOf } from './entities.js'
+import {
+  canAttack, isBuilding, isObstacle, isResource, isUnit, stepToTarget, typeOf,
+} from './entities.js'
 import { advanceUnit, routeUnit } from './pathfinding.js'
 
 // ближняя атака: расстояние от края объекта, а не от его центра
@@ -51,7 +53,7 @@ export const advanceBattle = (entities, dt, map) => {
         const moved = !unit.routeGoal || Math.hypot(unit.routeGoal.x - enemy.x, unit.routeGoal.y - enemy.y) > 0.5
         if ((moved || !unit.target) && !unit.repathDelay) {
           // для атаки достаточно любой свободной точки в радиусе удара
-          routeUnit(map, entities.filter((entity) => entity.hp > 0), unit, enemy, [],
+          routeUnit(map, entities.filter(isObstacle), unit, enemy, [],
             (point) => distanceToTarget(point, enemy) <= contactDistance + 1e-6)
           // у каждого своя добавка к паузе, чтобы бойцы не считали путь все в один кадр
           unit.repathDelay = 0.5 + (unit.id % 7) * 0.03
@@ -83,8 +85,11 @@ export const advanceBattle = (entities, dt, map) => {
     }
   })
 
-  // удаляем уничтоженные объекты и отменяем приказы на исчезнувшие цели
-  const alive = entities.filter((entity) => entity.hp > 0)
+  // удаляем уничтоженные объекты и выработанные ресурсы, отменяем приказы на исчезнувшие цели
+  const alive = entities.filter((entity) => {
+    if (isResource(entity)) return entity.amount > 0
+    return entity.hp > 0
+  })
   const aliveIds = new Set(alive.map((entity) => entity.id))
   alive.filter(isUnit).forEach((unit) => {
     if (unit.attackTargetId !== null && !aliveIds.has(unit.attackTargetId)) {

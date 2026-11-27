@@ -25,8 +25,10 @@ test('каждый сценарий создаёт нужное число гр�
   for (const groupCount of [2, 3, 4, 9]) {
     const { groups, entities, events, nextEventId } = createBattle(createSquareMap(120), groupCount)
     assert.equal(groups.length, groupCount)
-    assert.equal(entities.length, groupCount * 5)
-    assert.ok(entities.every((entity) => groups.some((group) => group.id === entity.groupId)))
+    // ресурсы ничьи, у них нет клана
+    const owned = entities.filter((entity) => entity.kind !== 'resource')
+    assert.equal(owned.length, groupCount * 5)
+    assert.ok(owned.every((entity) => groups.some((group) => group.id === entity.groupId)))
     assert.equal(new Set(entities.map((entity) => entity.id)).size, entities.length)
     assert.ok(events.length > 0)
     assert.equal(new Set(events.map((event) => event.id)).size, events.length)
@@ -68,7 +70,7 @@ test('сценарные здания и персонажи стоят на су
     const { entities } = createBattle(map, groupCount)
     entities.forEach((entity) => {
       const others = entities.filter((other) => other.id !== entity.id)
-      assert.ok(isUnit(entity)
+      assert.ok(isUnit(entity) || entity.kind === 'resource'
         ? canPlaceUnit(map, others, typeOf(entity), entity)
         : canPlaceBuilding(map, others, entity.type, entity), `${groupCount}: ${entity.type}`)
     })

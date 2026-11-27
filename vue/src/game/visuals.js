@@ -151,6 +151,28 @@ const LOOKS = {
       }
     },
   },
+  // амбар: длинный сарай с двускатной крышей, широкие ворота и ящики у стены
+  storage: {
+    material: 'wood',
+    top: 2,
+    draw: (b, h) => {
+      const c = centerOf(b)
+      const crate = {
+        minX: b.maxX + 0.05, maxX: b.maxX + 0.55,
+        minY: c.y - 0.25, maxY: c.y + 0.25,
+      }
+      return {
+        faces: [
+          ...walls(b, h),
+          onLeft('door', b, c.x - 0.5, c.x + 0.5, 0, 0.9),
+          onRight('window', b, c.y - 0.9, c.y - 0.6, 0.6, 0.9),
+          ...gable(b, h, 0.8),
+          ...walls(crate, 0.45), lid(crate, 0.45, 'deck'),
+        ],
+        flag: flagAt({ x: b.minX + 0.3, y: b.minY + 0.3 }, h + 0.6),
+      }
+    },
+  },
   // логово: земляной холм в два уступа с черным лазом
   barracks: {
     material: 'earth',
@@ -240,6 +262,40 @@ export const buildingLook = (building, h, parts) => {
 
 // верх здания над его центром: готовое - по виду, строящееся - по высоте стен
 export const buildingTop = (building, h) => ((building.progress ?? 1) < 1 ? h * building.progress : LOOKS[building.type].top)
+
+// --- объекты ресурсов ---
+
+// вид объекта: символы из MapGround (ель, камень) и блестки руды/золота, все в единицах UPRIGHT
+const tree = (x, scale) => ({
+  href: '#spruce',
+  transform: `translate(${x} 0) scale(${scale})`,
+})
+const rock = (x, y, scale) => ({
+  href: '#rock',
+  transform: `translate(${x} ${y}) scale(${scale})`,
+})
+const veins = (part, points) => points.map(([cx, cy]) => ({ part, cx, cy, r: 0.12 }))
+const RESOURCE_LOOKS = {
+  wood: { items: [tree(-0.7, 0.9), tree(0.6, 0.8), tree(0, 1.15)] },
+  stone: { items: [rock(-0.6, 0, 2.4), rock(0.6, 0.1, 2), rock(0, 0.3, 3)] },
+  ore: {
+    items: [rock(-0.4, 0, 2.4), rock(0.4, 0.2, 2.6)],
+    veins: veins('ore', [[-0.5, -0.3], [0.3, -0.25], [0.6, -0.1]]),
+  },
+  gold: {
+    items: [rock(0, 0.2, 2.8)],
+    veins: veins('gold', [[-0.35, -0.2], [0.1, -0.5], [0.4, -0.15]]),
+  },
+}
+
+// чем меньше осталось, тем меньше объект: от полного размера до 60%
+export const resourceLook = (resource, type) => {
+  const scale = 0.6 + (0.4 * resource.amount) / type.amount
+  return {
+    ...RESOURCE_LOOKS[resource.type],
+    transform: `translate(${resource.x} ${resource.y}) ${UPRIGHT} scale(${scale.toFixed(2)})`,
+  }
+}
 
 // --- лес вокруг карты ---
 

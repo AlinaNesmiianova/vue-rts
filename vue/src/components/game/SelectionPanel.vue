@@ -8,9 +8,18 @@
     <template v-else-if="entity">
       <div class="selection-panel__heading">
         <strong>{{ type.name }}</strong>
-        <span class="selection-panel__group" :style="groupStyle">{{ groupName }}</span>
+        <span
+          v-if="group"
+          class="selection-panel__group"
+          :style="groupStyle"
+        >{{ groupName }}</span>
       </div>
-      <div class="selection-panel__details">
+      <!-- у ресурса нет здоровья и клана, только запас -->
+      <div v-if="entityIsResource" class="selection-panel__details">
+        <span>Ресурс: <strong>{{ resourceName }}</strong></span>
+        <span>Осталось: <strong>{{ entity.amount }} / {{ type.amount }}</strong></span>
+      </div>
+      <div v-else class="selection-panel__details">
         <span>Здоровье: <strong>{{ entity.hp }} / {{ type.maxHp }}</strong></span>
         <template v-if="entityIsUnit">
           <span>Сила: <strong>{{ type.attack }}</strong></span>
@@ -44,6 +53,17 @@
           >×{{ count }}</button>
         </div>
       </template>
+
+      <!-- амбар и особняк хранят добычу: показываем запасы клана -->
+      <div v-if="storedStock.length" class="selection-panel__actions">
+        <span>Запасы клана:</span>
+        <strong
+          v-for="row in storedStock"
+          :key="row.key"
+          :class="row.classes"
+          :title="row.name"
+        >{{ row.amount }}</strong>
+      </div>
 
       <div v-if="entityIsUnit" class="selection-panel__actions">
         <span>{{ orderStatus }} · Команд: {{ orders.length }}</span>
@@ -80,7 +100,8 @@
 <script setup>
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { isBuilt, isUnit, typeOf, UNIT_TYPES } from '@/game/entities'
+import { isBuilt, isResource, isUnit, typeOf, UNIT_TYPES } from '@/game/entities'
+import { RESOURCES, stockRows } from '@/game/resources'
 import { PHASES } from '@/store/game'
 
 const SPAWN_COUNTS = [1, 5, 10]
@@ -95,6 +116,8 @@ const emptySelection = computed(() => !selected.value.length)
 const multiple = computed(() => selected.value.length > 1)
 const entity = computed(() => selected.value[0] ?? null)
 const entityIsUnit = computed(() => !!entity.value && isUnit(entity.value))
+const entityIsResource = computed(() => !!entity.value && isResource(entity.value))
+const resourceName = computed(() => entity.value && RESOURCES[entity.value.type])
 const type = computed(() => entity.value && typeOf(entity.value))
 const group = computed(() => entity.value && store.getters['game/getGroup'](entity.value.groupId))
 const groupName = computed(() => group.value?.name)
@@ -122,6 +145,18 @@ const spawnOptions = computed(() => {
 
 // выбрано недостроенное здание
 const constructing = computed(() => !!entity.value && !entityIsUnit.value && !isBuilt(entity.value))
+// достроенное здание: только у него работает склад
+const readyBuilding = computed(() => {
+  if (!entity.value || entityIsUnit.value || entityIsResource.value) return false
+  return !constructing.value
+})
+const storedStock = computed(() => {
+  if (!readyBuilding.value || !type.value.stores) return []
+  return stockRows(group.value?.resources).map((row) => ({
+    ...row,
+    classes: ['selection-panel__resource', `selection-panel__resource--${row.key}`],
+  }))
+})
 const buildPercent = computed(() => (constructing.value ? Math.floor(entity.value.progress * 100) : 0))
 const progressStyle = computed(() => ({ width: `${buildPercent.value}%` }))
 
@@ -184,6 +219,10 @@ const onSelfDestruct = () => props.actions.selfDestruct(entity.value.id)
     span {
       color: ui.$muted;
     }
+  }
+
+  &__resource {
+    @include ui.resource-dot;
   }
 
   &__group {

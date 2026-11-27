@@ -1,6 +1,7 @@
 // стройка: куда встанет здание и можно ли его там поставить
 import { canStandOnTerrain, containsPoint, terrainAt, TERRAIN_TYPES } from './map.js'
 import { BUILDING_TYPES, isBuilding, typeOf, UNIT_TYPES } from './entities.js'
+import { RESOURCE_TYPES } from './resources.js'
 
 // углы проверяем чуть внутри здания, чтобы край карты не считался выходом за нее
 const EDGE_INSET = 0.001
@@ -182,16 +183,36 @@ export const canPlaceBuilding = (map, entities, type, point) => {
   return entities.every((entity) => !overlaps(box, entity))
 }
 
-// ближайшее к точке near место, где помещается здание: обходим квадратные кольца вокруг нее
-export const findBuildingSpot = (map, entities, type, near, maxRadius = 40) => {
+// ближайшая к near точка, для которой fits(point) верно: обходим квадратные кольца вокруг нее
+const findSpot = (near, maxRadius, toPoint, fits) => {
   for (let r = 0; r <= maxRadius; r++) {
     for (let dx = -r; dx <= r; dx++) {
       for (let dy = -r; dy <= r; dy++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue // только клетки на кольце
-        const point = snapToGrid(type, { x: near.x + dx, y: near.y + dy })
-        if (canPlaceBuilding(map, entities, type, point)) return point
+        const point = toPoint({ x: near.x + dx, y: near.y + dy })
+        if (fits(point)) return point
       }
     }
   }
   return null
+}
+
+// ближайшее к точке near место, где помещается здание
+export const findBuildingSpot = (map, entities, type, near, maxRadius = 40) => findSpot(
+  near,
+  maxRadius,
+  (point) => snapToGrid(type, point),
+  (point) => canPlaceBuilding(map, entities, type, point),
+)
+
+// место для объекта ресурса: на суше и с клеткой запаса вокруг, чтобы не перегородить проход
+export const findResourceSpot = (map, entities, type, near, maxRadius = 12) => {
+  const area = { ...RESOURCE_TYPES[type], size: RESOURCE_TYPES[type].size + 2 }
+  return findSpot(
+    near,
+    maxRadius,
+    // ставим в центр клетки
+    (point) => ({ x: Math.round(point.x) + 0.5, y: Math.round(point.y) + 0.5 }),
+    (point) => canPlaceUnit(map, entities, area, point),
+  )
 }
