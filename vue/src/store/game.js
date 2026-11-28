@@ -3,10 +3,13 @@
 
 import { cameraMatrix, createCamera, panCamera, screenToWorld, worldToScreen, zoomCamera } from '../game/camera.js'
 import { containsPoint, createSquareMap } from '../game/map.js'
-import { BUILDING_TYPES, canAttack, createBuilding, createUnit, isBuilding, isBuilt, isUnit, typeOf, UNIT_TYPES } from '../game/entities.js'
+import {
+  BUILDING_TYPES, canAttack, createBuilding, createUnit, isBuilding, isBuilt, isGatherer, isResource, isUnit, typeOf, UNIT_TYPES,
+} from '../game/entities.js'
 import { addOrders, ORDER_TYPES } from '../game/events.js'
 import { advanceFrame } from '../game/frame.js'
 import { createGroup } from '../game/groups.js'
+import { createStock } from '../game/resources.js'
 import { createBase, createBattle, DEFAULT_GROUP_COUNT, planAttacks } from '../game/scenarios.js'
 import { getGameResult, remainingGroups } from '../game/result.js'
 import { canPlaceBuilding, shipyardDirection, snapToGrid } from '../game/placement.js'
@@ -163,6 +166,12 @@ export default {
       const next = advanceFrame(state.entities, state.events, dt, state.map)
       state.entities = next.entities
       state.events = next.events
+      next.deliveries.forEach(({ groupId, type, amount }) => {
+        const group = state.groups.find((item) => item.id === groupId)
+        if (!group) return
+        group.resources ??= createStock()
+        group.resources[type] = (group.resources[type] ?? 0) + amount
+      })
       state.elapsedSeconds += dt
       const aliveIds = new Set(state.entities.map((entity) => entity.id))
       state.selectedIds = state.selectedIds.filter((id) => aliveIds.has(id))
@@ -245,6 +254,23 @@ export default {
             commit(MUTATIONS.ADD_ORDERS, { unitIds: [unit.id], order: { type: ORDER_TYPES.MOVE, target: { x: unit.x, y: unit.y } }, append: false })
           }
         })
+      })
+    },
+    gatherSelected: ({ commit, state, getters }, { targetId, append = false }) => {
+      if (state.phase === PHASES.FINISHED) return
+
+      const target = state.entities.find((entity) => entity.id === targetId)
+      if (!target || !isResource(target) || target.amount <= 0) return
+
+      const workerIds = getters.getSelected
+        .filter(isGatherer)
+        .map((worker) => worker.id)
+      if (!workerIds.length) return
+
+      commit(MUTATIONS.ADD_ORDERS, {
+        unitIds: workerIds,
+        order: { type: ORDER_TYPES.GATHER, targetId },
+        append,
       })
     },
     attackSelected: ({ commit, state, getters }, { targetId, append = false }) => {

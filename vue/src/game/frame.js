@@ -1,13 +1,15 @@
 // Один кадр: берём состояние карты и текущие события, применяем приказы и
 // возвращаем новое состояние. Компоненты ничего не рассчитывают сами.
 import { advanceBattle } from './combat.js'
-import { canAttack, isBuilding, isBuilt, isUnit, stepToTarget, typeOf } from './entities.js'
+import { canAttack, isBuilding, isBuilt, isGatherer, isResource, isUnit, stepToTarget, typeOf } from './entities.js'
 import { ORDER_TYPES, removeOrder } from './events.js'
+import { advanceGathering } from './gathering.js'
 import { advanceUnit, routeUnit } from './pathfinding.js'
 
 export const advanceFrame = (entities, events, dt, map) => {
   let nextEntities = entities.map((entity) => ({ ...entity }))
   let nextEvents = events.map((event) => ({ ...event }))
+  const deliveries = []
   const byId = new Map(nextEntities.map((entity) => [entity.id, entity]))
   const firstOrder = (unit) => nextEvents.find((event) => event.unitId === unit.id)
   const finish = (event) => (nextEvents = removeOrder(nextEvents, event.id))
@@ -41,6 +43,14 @@ export const advanceFrame = (entities, events, dt, map) => {
       }
       if (unit.attackTargetId !== event.targetId) unit.attackCooldown = 0
       unit.attackTargetId = event.targetId
+    } else if (event?.type === ORDER_TYPES.GATHER) {
+      if (unit.activeEventId !== event.id) {
+        unit.target = null
+        unit.path = []
+        unit.gatherDestinationId = null
+      }
+      unit.attackTargetId = null
+      unit.attackCooldown = 0
     } else {
       unit.target = null
       unit.path = []
@@ -52,21 +62,43 @@ export const advanceFrame = (entities, events, dt, map) => {
   }
 
   const moveDistances = new Map()
+  const gatheringIds = new Set()
   nextEntities.filter(isUnit).forEach((unit) => {
     const event = activate(unit)
     if (event?.type === ORDER_TYPES.MOVE) {
       moveDistances.set(unit.id, Math.hypot(unit.x - event.target.x, unit.y - event.target.y))
     }
+    if (event?.type === ORDER_TYPES.GATHER) gatheringIds.add(unit.id)
   })
 
   // Движение и бой рассчитываются в одной симуляции, а не в SVG-компонентах.
-  nextEntities = advanceBattle(nextEntities, dt, map)
+  nextEntities = advanceBattle(nextEntities, dt, map, gatheringIds)
   const aliveIds = new Set(nextEntities.map((entity) => entity.id))
   nextEvents = nextEvents.filter((event) => aliveIds.has(event.unitId))
 
   nextEntities.filter(isUnit).forEach((unit) => {
     const event = firstOrder(unit)
     if (!event) return
+
+    if (event.type === ORDER_TYPES.GATHER) {
+      if (isGatherer(unit)) {
+        const target = byId.get(event.targetId)
+        const resource = target && isResource(target) ? target : null
+        const finished = advanceGathering({
+          map,
+          entities: nextEntities,
+          worker: unit,
+          order: event,
+          resource,
+          dt,
+          deliveries,
+        })
+        if (!finished) return
+      }
+      finish(event)
+      activate(unit)
+      return
+    }
 
     if (event.type === ORDER_TYPES.ATTACK) {
       // Атака завершается, когда цель погибла или перестала быть доступна.
@@ -97,5 +129,5 @@ export const advanceFrame = (entities, events, dt, map) => {
 
   nextEntities.filter(isUnit).forEach((unit) => delete unit.remainingTime)
 
-  return { entities: nextEntities, events: nextEvents }
+  return { entities: nextEntities.filter((entity) => !isResource(entity) || entity.amount > 0), events: nextEvents, deliveries }
 }

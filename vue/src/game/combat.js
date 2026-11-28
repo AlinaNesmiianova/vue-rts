@@ -18,7 +18,7 @@ export const distanceToTarget = (unit, target) => {
 }
 
 // шаг симуляции: движение и атака зависят от dt, а не от частоты кадров
-export const advanceBattle = (entities, dt, map) => {
+export const advanceBattle = (entities, dt, map, gatheringIds) => {
   const byId = new Map(entities.map((entity) => [entity.id, entity]))
 
   entities.filter(isUnit).forEach((unit) => {
@@ -26,6 +26,7 @@ export const advanceBattle = (entities, dt, map) => {
 
     // свободное перемещение без приказа атаковать
     if (unit.attackTargetId === null) {
+      if (gatheringIds?.has(unit.id)) return // маршрут добычи зависит от запаса и груза
       if (map) unit.remainingTime = advanceUnit(map, entities, unit, dt)
       else if (unit.target) Object.assign(unit, stepToTarget(unit, dt))
       return

@@ -66,6 +66,7 @@
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { shipPoints, UNIT_TYPES } from '@/game/entities'
+import { ORDER_TYPES } from '@/game/events'
 import { colorOf } from '@/game/groups'
 import { FIGURES, toPoints, UPRIGHT } from '@/game/visuals'
 
@@ -118,7 +119,10 @@ const pose = computed(() => ({
 
 const findEntity = (id) => store.state.game.entities.find((entity) => entity.id === id)
 
-const attackTarget = computed(() => findEntity(orders.value[0]?.targetId))
+const attackTarget = computed(() => {
+  const order = orders.value[0]
+  return order?.type === ORDER_TYPES.ATTACK ? findEntity(order.targetId) : null
+})
 const attackLine = computed(() => attackTarget.value && {
   x1: props.unit.x, y1: props.unit.y, x2: attackTarget.value.x, y2: attackTarget.value.y,
 })

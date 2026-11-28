@@ -84,7 +84,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
 import { clamp, screenToWorld } from '@/game/camera'
 import {
-  BUILDING_TYPES, canAttack, entityAtPoint, isBuilding, isResource, KINDS, typeOf,
+  BUILDING_TYPES, canAttack, entityAtPoint, isBuilding, isGatherer, isResource, KINDS, typeOf,
 } from '@/game/entities'
 import { isClick, toRect } from '@/game/selection'
 import { buildingTop, rectOf } from '@/game/visuals'
@@ -192,7 +192,7 @@ const onMouseUp = () => {
   else if (!add) props.actions.select(null)
 }
 
-// ПКМ: отмена стройки, атака противника или движение; shift добавляет приказ в очередь
+// ПКМ: отмена стройки, добыча, атака или движение; shift добавляет приказ в очередь
 const onRightClick = (e) => {
   if (placement.value) {
     props.actions.cancelPlacement()
@@ -202,8 +202,17 @@ const onRightClick = (e) => {
   const { camera, viewport, entities } = store.state.game
   const target = entityAtPoint(entities, screenToWorld(camera, viewport, point))
   const selected = store.getters['game/getSelected']
-  if (target && selected.some((unit) => canAttack(unit, target))) props.actions.attack({ targetId: target.id, append: e.shiftKey })
-  else props.actions.move({ point, append: e.shiftKey })
+  const { shiftKey: append } = e
+
+  if (target && isResource(target) && selected.some(isGatherer)) {
+    props.actions.gather({ targetId: target.id, append })
+    return
+  }
+  if (target && selected.some((unit) => canAttack(unit, target))) {
+    props.actions.attack({ targetId: target.id, append })
+    return
+  }
+  props.actions.move({ point, append })
 }
 
 // запоминаем курсор для прокрутки у края; во время стройки двигаем за ним здание-призрак

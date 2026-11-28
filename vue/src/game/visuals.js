@@ -49,6 +49,17 @@ export const FIGURES = {
     { tag: 'path', part: 'hair', d: 'M-0.15 -1.08Q-0.12 -1.26 0.03 -1.25Q0.18 -1.24 0.18 -1.1L0.08 -1.15L0.02 -1.07L-0.04 -1.14Z' },
     { tag: 'circle', part: 'eye', cx: 0.1, cy: -1.05, r: 0.03 },
   ],
+  // рабочий: в шапке, с киркой
+  worker: [
+    { tag: 'rect', part: 'dark', x: -0.19, y: -0.49, width: 0.13, height: 0.49 },
+    { tag: 'rect', part: 'dark', x: 0.05, y: -0.49, width: 0.13, height: 0.49 },
+    { tag: 'path', part: 'body', d: 'M-0.23 -0.43L-0.17 -0.88L0.17 -0.88L0.22 -0.43Z' },
+    { tag: 'circle', part: 'skin', cx: 0.02, cy: -1, r: 0.15 },
+    { tag: 'path', part: 'dark', d: 'M-0.16 -1.04Q-0.14 -1.25 0.08 -1.19L0.17 -1.08L0.24 -1.04Z' },
+    { tag: 'path', part: 'pole', d: 'M0.23 -0.41L0.45 -1.07' },
+    { tag: 'path', part: 'pale', d: 'M0.21 -1.12Q0.49 -1.2 0.67 -0.94Q0.46 -1.08 0.21 -1.12Z' },
+    { tag: 'circle', part: 'skin', cx: 0.3, cy: -0.63, r: 0.075 },
+  ],
   // ловец: в долбленке с острогой
   swimmer: [
     { tag: 'path', part: 'pole', d: 'M0.05 -0.6L0.5 -1.15M0.5 -1.15L0.41 -1.07M0.5 -1.15L0.51 -1.03' },
