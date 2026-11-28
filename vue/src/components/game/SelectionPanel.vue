@@ -26,6 +26,11 @@
           <span>Ходьба: <strong>{{ type.speed }} кл/с</strong></span>
           <span>Атака: <strong>{{ type.attackSpeed }} уд/с</strong></span>
         </template>
+        <template v-if="canGather">
+          <span>Добыча: <strong>{{ type.gatherRate }} ед/с</strong></span>
+          <span>За ходку: <strong>{{ type.carryCapacity }} ед.</strong></span>
+          <span v-if="cargoLabel">Груз: <strong>{{ cargoLabel }}</strong></span>
+        </template>
         <span>Клетка: <strong>{{ cell }}</strong></span>
       </div>
 
@@ -92,7 +97,7 @@
     </div>
 
     <template v-if="emptySelection">
-      <span class="selection-panel__hint">ЛКМ — выбрать · рамка — несколько · ПКМ — идти / атаковать · Shift + ПКМ — в очередь · WASD — камера</span>
+      <span class="selection-panel__hint">ЛКМ — выбрать · рамка — несколько · ПКМ — идти / атаковать / добывать рабочим · Shift + ПКМ — в очередь · WASD — камера</span>
     </template>
   </div>
 </template>
@@ -100,7 +105,8 @@
 <script setup>
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { isBuilt, isResource, isUnit, typeOf, UNIT_TYPES } from '@/game/entities'
+import { isBuilt, isGatherer, isResource, isUnit, typeOf, UNIT_TYPES } from '@/game/entities'
+import { ORDER_TYPES } from '@/game/events'
 import { RESOURCES, stockRows } from '@/game/resources'
 import { PHASES } from '@/store/game'
 
@@ -119,6 +125,11 @@ const entityIsUnit = computed(() => !!entity.value && isUnit(entity.value))
 const entityIsResource = computed(() => !!entity.value && isResource(entity.value))
 const resourceName = computed(() => entity.value && RESOURCES[entity.value.type])
 const type = computed(() => entity.value && typeOf(entity.value))
+const canGather = computed(() => !!entity.value && isGatherer(entity.value))
+const cargoLabel = computed(() => {
+  const cargo = entity.value?.cargo
+  return cargo ? `${RESOURCES[cargo.type]} ×${cargo.amount}` : ''
+})
 const group = computed(() => entity.value && store.getters['game/getGroup'](entity.value.groupId))
 const groupName = computed(() => group.value?.name)
 const groupStyle = computed(() => ({ borderColor: group.value?.color, color: group.value?.color }))
@@ -161,8 +172,10 @@ const buildPercent = computed(() => (constructing.value ? Math.floor(entity.valu
 const progressStyle = computed(() => ({ width: `${buildPercent.value}%` }))
 
 const orderStatus = computed(() => {
-  if (!orders.value.length) return 'Ожидает приказа'
-  return orders.value[0].type === 'attack' ? 'Атакует противника' : 'Перемещается'
+  const order = orders.value[0]
+  if (!order) return 'Ожидает приказа'
+  if (order.type === ORDER_TYPES.GATHER) return 'Добывает ресурсы'
+  return order.type === ORDER_TYPES.ATTACK ? 'Атакует противника' : 'Перемещается'
 })
 
 // кланы, которые можно атаковать: живые и не единственный клан всех выбранных бойцов

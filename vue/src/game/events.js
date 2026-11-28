@@ -1,6 +1,6 @@
 // Очередь приказов живет отдельно от объектов карты.
 // nextId связывает последовательные события одного персонажа.
-export const ORDER_TYPES = { MOVE: 'move', ATTACK: 'attack' }
+export const ORDER_TYPES = { MOVE: 'move', ATTACK: 'attack', GATHER: 'gather' }
 
 export const addOrders = (events, nextId, unitIds, order, append = false) => {
   const ids = new Set(unitIds)

@@ -11,6 +11,10 @@ export const KINDS = { UNIT: 'unit', BUILDING: 'building', RESOURCE: 'resource' 
 export const UNIT_TYPES = {
   slow: { name: 'Оборотень', maxHp: 120, attack: 18, attackSpeed: 1, speed: 1.5, size: 0.8, color: '#3d6fb8', terrain: TERRAIN_TYPES.LAND },
   fast: { name: 'Вампир', maxHp: 75, attack: 11, attackSpeed: 2, speed: 7, size: 0.8, color: '#b8432f', terrain: TERRAIN_TYPES.LAND },
+  worker: {
+    name: 'Рабочий', maxHp: 50, attack: 4, attackSpeed: 1, speed: 2.5, size: 0.8, color: '#b58a54', terrain: TERRAIN_TYPES.LAND,
+    gatherRate: 1, carryCapacity: 10, // единиц ресурса в секунду и за одну ходку
+  },
   swimmer: { name: 'Ловец', maxHp: 120, attack: 18, attackSpeed: 1, speed: 2, size: 0.8, color: '#e0c55a', terrain: TERRAIN_TYPES.WATER },
   boat: { name: 'Каноэ', maxHp: 120, attack: 18, attackSpeed: 1, speed: 3, size: 0.8, color: '#d6ac6a', terrain: TERRAIN_TYPES.WATER, ship: true },
   ship: { name: 'Лодка', maxHp: 120, attack: 18, attackSpeed: 1, speed: 2, size: 1.6, color: '#bd8050', terrain: TERRAIN_TYPES.WATER, ship: true },
@@ -32,7 +36,7 @@ export const BUILDING_TYPES = {
   barracks: { name: 'Логово', maxHp: 160, size: 3, height: 1.3, buildTime: 3, color: '#6b5b7b', spawns: 'slow' },
   castle: {
     name: 'Особняк', maxHp: 400, size: 4, height: 2.4, buildTime: 5, color: '#7d7f86',
-    spawns: 'fast', stores: true,
+    spawns: ['fast', 'worker'], stores: true,
   },
   shipyard: { name: 'Лодочный сарай', maxHp: 160, size: 6, height: 0.8, buildTime: 4, color: '#96724e', spawns: ['boat', 'ship', 'largeShip'] },
   waterBase: { name: 'Пристань', maxHp: 160, size: 3, height: 0.6, buildTime: 3, color: '#438a98', terrain: TERRAIN_TYPES.WATER, spawns: 'swimmer' },
@@ -79,8 +83,10 @@ export const isBuilding = (entity) => entity.kind === KINDS.BUILDING
 
 export const isResource = (entity) => entity.kind === KINDS.RESOURCE
 
+export const isGatherer = (entity) => isUnit(entity) && typeOf(entity).gatherRate > 0
+
 // мешает пройти: живой персонаж или здание, а также ресурс, пока он не выработан
-export const isObstacle = (entity) => entity.hp > 0 || isResource(entity)
+export const isObstacle = (entity) => isResource(entity) ? entity.amount > 0 : entity.hp > 0
 
 // здание достроено: у стартовых зданий progress нет, они готовы сразу
 export const isBuilt = (entity) => (entity.progress ?? 1) >= 1
@@ -88,6 +94,7 @@ export const isBuilt = (entity) => (entity.progress ?? 1) >= 1
 // ближайший к точке достроенный склад клана: туда добытчик несет ресурсы
 const isStorage = (entity, groupId) =>
   isBuilding(entity) &&
+  entity.hp > 0 &&
   entity.groupId === groupId &&
   !!BUILDING_TYPES[entity.type].stores &&
   isBuilt(entity)
